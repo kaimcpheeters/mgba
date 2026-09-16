@@ -7,6 +7,27 @@ private let ink = Color(red: 0.14, green: 0.14, blue: 0.18)
 private let violet = Color(red: 0.40, green: 0.33, blue: 0.69)
 private let shell = Color(red: 0.89, green: 0.89, blue: 0.92)
 
+// The original GBA lens bows across the top and has a deeper, curved chin.
+private struct AdvanceBezel: Shape {
+    func path(in rect: CGRect) -> Path {
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + rect.width * x, y: rect.minY + rect.height * y)
+        }
+        var path = Path()
+        path.move(to: point(0.10, 0.035))
+        path.addCurve(to: point(0.90, 0.035), control1: point(0.32, -0.005), control2: point(0.68, -0.005))
+        path.addCurve(to: point(0.975, 0.115), control1: point(0.955, 0.04), control2: point(0.972, 0.06))
+        path.addLine(to: point(1, 0.82))
+        path.addCurve(to: point(0.89, 0.94), control1: point(1, 0.90), control2: point(0.96, 0.925))
+        path.addCurve(to: point(0.11, 0.94), control1: point(0.64, 1.02), control2: point(0.36, 1.02))
+        path.addCurve(to: point(0, 0.82), control1: point(0.04, 0.925), control2: point(0, 0.90))
+        path.addLine(to: point(0.025, 0.115))
+        path.addCurve(to: point(0.10, 0.035), control1: point(0.028, 0.06), control2: point(0.045, 0.04))
+        path.closeSubpath()
+        return path
+    }
+}
+
 struct GameDexView: View {
     @ObservedObject var model: GameModel
     @FocusState private var focused: Bool
@@ -91,10 +112,9 @@ struct Handheld: View {
             }.padding(.horizontal, 18).padding(.top, mobile ? 8 : 18)
             VStack(spacing: 0) {
                 if !mobile { HStack {
-                    Text("ADVANCE").font(.system(size: 9, weight: .heavy, design: .rounded)).italic().tracking(2)
                     Spacer()
                     Text("240 × 160").font(.system(size: 8, design: .monospaced)).tracking(1)
-                }.foregroundStyle(.white.opacity(0.38)).padding(.horizontal, 15).padding(.vertical, 13) }
+                }.foregroundStyle(.white.opacity(0.38)).padding(.horizontal, 22).padding(.top, 12).padding(.bottom, 10) }
                 ZStack {
                     Color(red: 0.055, green: 0.065, blue: 0.055)
                     if let image = model.image {
@@ -112,15 +132,23 @@ struct Handheld: View {
                             .padding(14).background(.ultraThinMaterial, in: Capsule())
                     }
                 }.frame(width: mobile ? 390 : model.desktopGameWidth, height: mobile ? 260 : model.desktopGameWidth / 1.5).clipped()
-                if !mobile { HStack {
-                    Text("GAME BOY ADVANCE").font(.system(size: 8, weight: .semibold, design: .rounded)).tracking(2.5)
-                    Spacer()
-                    Circle().fill(model.recording ? .red : .white.opacity(0.15)).frame(width: 4, height: 4)
-                }.foregroundStyle(.white.opacity(0.38)).padding(.horizontal, 15).padding(.vertical, 13) }
+                .padding(.horizontal, mobile ? 0 : 16)
+                if !mobile {
+                    Text("GAME BOY ADVANCE")
+                        .font(.system(size: 10, weight: .heavy, design: .rounded)).italic().tracking(-0.3)
+                        .foregroundStyle(.white.opacity(0.62))
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 14).padding(.bottom, 22)
+                }
             }
-            .background(LinearGradient(colors: [Color(white: 0.19), Color(white: 0.105)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 17))
-            .overlay(RoundedRectangle(cornerRadius: 17).strokeBorder(.black.opacity(mobile ? 0 : 0.55), lineWidth: 1))
-            .padding(.horizontal, mobile ? 0 : 22).padding(.top, mobile ? 12 : 18)
+            .background {
+                if !mobile {
+                    AdvanceBezel().fill(LinearGradient(colors: [Color(white: 0.13), Color(white: 0.075)], startPoint: .top, endPoint: .bottom))
+                        .overlay(AdvanceBezel().stroke(.black.opacity(0.75), lineWidth: 1))
+                        .overlay(AdvanceBezel().stroke(.white.opacity(0.12), lineWidth: 0.5).padding(1))
+                }
+            }
+            .padding(.horizontal, mobile ? 0 : 6).padding(.top, mobile ? 12 : 18)
             Spacer(minLength: 28)
             HStack(spacing: 0) {
                 hold("L", hint: "Q", bit: 9, width: 114, height: 44, shoulder: true)

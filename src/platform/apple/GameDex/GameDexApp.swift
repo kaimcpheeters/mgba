@@ -56,6 +56,14 @@ struct GameDexApp {
         }
         if let rom = args.firstIndex(of: "--rom"), rom + 1 < args.count { model.load(URL(fileURLWithPath: args[rom + 1])) }
         else { model.restore() }
+        // Render a layout preview without taking focus or exercising window modes.
+        if let index = args.firstIndex(of: "--layout-preview"), index + 1 < args.count {
+            let url = URL(fileURLWithPath: args[index + 1])
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.snapshot(url); NSApp.terminate(nil)
+            }
+            return
+        }
         window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
         if let testDirectory { runTest(testDirectory) }
     }
