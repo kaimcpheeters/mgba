@@ -120,6 +120,7 @@ final class GameModel: ObservableObject {
     @Published var recording = false
     @Published var paused = false
     @Published var expanded = false
+    @Published var showingMenu = false
     @Published var showingLibrary = false
     @Published var showingPlayback = false
     @Published var importing = false
@@ -175,6 +176,7 @@ final class GameModel: ObservableObject {
             let name = try emulator.load(target, save: save)
             title = name.contains("POKEMON EMER") ? "Pokémon Emerald" : name
             loaded = true; paused = false; sources.removeAll(); pressed = 0; message = nil
+            updatePauseState()
             try recentROMs.remember(target)
             recentROMPaths = recentROMs.paths
         } catch { message = error.localizedDescription }
@@ -186,20 +188,19 @@ final class GameModel: ObservableObject {
     }
 
     func hold(_ source: String, _ mask: UInt32) {
-        guard loaded, !paused, !showingLibrary, !showingPlayback, !importing else { return }
+        guard loaded, !isPaused else { return }
         sources[source] = mask; pressed = sources.values.reduce(0, |); emulator.setKeys(pressed)
     }
     func release(_ source: String) { sources.removeValue(forKey: source); pressed = sources.values.reduce(0, |); emulator.setKeys(pressed) }
     func clear() { sources.removeAll(); pressed = 0; emulator.setKeys(0) }
-    func pause() { paused.toggle(); clear(); emulator.setPaused(paused || showingLibrary || showingPlayback) }
-    func focus(_ active: Bool) {
-        if !active { focusPaused = !paused; clear(); emulator.setPaused(true) }
-        else if focusPaused { emulator.setPaused(paused || showingLibrary || showingPlayback); focusPaused = false }
-    }
-    func libraryChanged(_ open: Bool) { clear(); emulator.setPaused(paused || open || showingPlayback); if open { refresh() } }
-    func playbackChanged(_ open: Bool) {
-        showingPlayback = open; clear(); emulator.setPaused(paused || showingLibrary || open || focusPaused)
-    }
+    var isPaused: Bool { paused || showingMenu || showingLibrary || showingPlayback || importing || focusPaused }
+    func updatePauseState() { clear(); emulator.setPaused(isPaused) }
+    func pause() { paused.toggle(); updatePauseState() }
+    func openMenu() { showingMenu = true; updatePauseState() }
+    func resumeGame() { showingMenu = false; paused = false; updatePauseState() }
+    func focus(_ active: Bool) { focusPaused = !active; updatePauseState() }
+    func libraryChanged(_ open: Bool) { updatePauseState(); if open { refresh() } }
+    func playbackChanged(_ open: Bool) { showingPlayback = open; updatePauseState() }
     func deleteTake(_ take: Take) {
         guard !recording, take.id.deletingLastPathComponent().standardizedFileURL == library.standardizedFileURL else { return }
         do { try FileManager.default.removeItem(at: take.id); refresh() }

@@ -42,14 +42,17 @@ entry. Existing `lastROM` preferences migrate automatically.
 - **Expanded:** the handheld keeps its size and position; a 320-point Sessions panel
   opens on its right. The Mac window grows from its existing left edge, shifting only if needed to fit the display.
 - **iPhone:** the game image spans the entire available portrait width, preserving
-  GBA's 3:2 aspect ratio. The controls fit below it within the safe area. The iOS toolbar has recording, pause and settings controls; expansion
+  GBA's 3:2 aspect ratio. The controls fit below it within the safe area. The iOS toolbar has recording and settings controls; expansion
   is Mac-only. L/R sit flush with the outer edges above the main controls, and
   keyboard hints appear only on desktop.
 - **Mac screen size:** choose 1× or 2× in Settings or the View menu (⌘1 / ⌘2).
   2× doubles the image dimensions to 122.4×81.6 mm, about 5.8 inches diagonal.
   Native full screen (⌃⌘F; Esc to exit) preserves the chosen size and adds dark
   margins. Small displays scroll instead of silently shrinking the image.
-  The desktop toolbar contains recording, pause and expansion only.
+  The desktop toolbar contains recording and expansion only.
+- **Menu:** opens a dimmed pause overlay, clears held buttons, and freezes emulation
+  and recording time. Settings remains accessible; returning from Settings keeps
+  the menu paused until Resume (or Escape on desktop).
 - **REC light:** start/stop a recording without resetting the game. Starts off.
 - **Sessions:** desktop sessions live in the expanded panel, separate from Settings.
   iPhone combines them in **Settings & Sessions**. Both use the same session cards:

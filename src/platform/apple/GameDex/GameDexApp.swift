@@ -43,7 +43,7 @@ struct GameDexApp {
         fullScreen.keyEquivalentModifierMask = [.command, .control]
         NSApp.mainMenu = menu
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
-            guard let self, self.window.isKeyWindow, !self.model.showingLibrary, !self.model.showingPlayback, !self.model.importing,
+            guard let self, self.window.isKeyWindow, !self.model.showingMenu, !self.model.showingLibrary, !self.model.showingPlayback, !self.model.importing,
                   !event.modifierFlags.contains(.command), !event.modifierFlags.contains(.control), !event.modifierFlags.contains(.option) else { return event }
             if event.type == .keyDown && event.keyCode == 53 && self.model.desktopFullScreen {
                 self.window.toggleFullScreen(nil); return nil
@@ -56,11 +56,13 @@ struct GameDexApp {
         }
         if let rom = args.firstIndex(of: "--rom"), rom + 1 < args.count { model.load(URL(fileURLWithPath: args[rom + 1])) }
         else { model.restore() }
+        if args.contains("--pause-test"), testDirectory != nil { runPauseTest(); return }
         // Render a layout preview without taking focus or exercising window modes.
         if let index = args.firstIndex(of: "--layout-preview"), index + 1 < args.count {
             let url = URL(fileURLWithPath: args[index + 1])
             if args.contains("--preview-2x") { model.setDesktopScale(2) }
             if args.contains("--preview-expanded") { model.expand() }
+            if args.contains("--menu") { model.openMenu() }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 self.snapshot(url); NSApp.terminate(nil)
             }
@@ -109,6 +111,32 @@ struct GameDexApp {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func applicationWillTerminate(_ notification: Notification) { model.emulator.close(); if let monitor { NSEvent.removeMonitor(monitor) } }
     func application(_ sender: NSApplication, openFiles filenames: [String]) { if let file = filenames.first { model.load(URL(fileURLWithPath: file)) }; sender.reply(toOpenOrPrint: .success) }
+    func runPauseTest() {
+        model.focus(true)
+        model.emulator.toggleRecording()
+        var stoppedTime = 0.0
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            self.model.hold("test", 1)
+            self.model.openMenu()
+            assert(self.model.isPaused && self.model.pressed == 0)
+            self.model.hold("test", 2)
+            assert(self.model.pressed == 0)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { stoppedTime = self.model.seconds }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            assert(stoppedTime > 0 && self.model.seconds == stoppedTime, "Menu did not freeze emulation")
+            self.model.focus(false); self.model.focus(true)
+            assert(self.model.isPaused, "Focus changes dismissed the pause menu")
+            self.model.resumeGame()
+            assert(!self.model.isPaused)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            assert(self.model.seconds > stoppedTime + 0.1, "Resume did not restart emulation")
+            self.model.emulator.close()
+            print("PASS: Menu freezes game time, clears and blocks inputs, survives focus changes, and Resume restarts emulation")
+            NSApp.terminate(nil)
+        }
+    }
     func runTest(_ directory: URL) {
         assert(GameModel.keyboard("w") == 64 && GameModel.keyboard("a") == 32 && GameModel.keyboard("s") == 128 && GameModel.keyboard("d") == 16)
         assert(GameModel.keyboard("\r") == 1 && GameModel.keyboard(" ") == 2 && GameModel.keyboard("x") == 8 && GameModel.keyboard("z") == 4 && GameModel.keyboard("\t") == nil)
@@ -176,6 +204,9 @@ struct GameDexApp: App {
                     let args = CommandLine.arguments
                     if let index = args.firstIndex(of: "--rom"), index + 1 < args.count { model.load(URL(fileURLWithPath: args[index + 1])) }
                     else { model.restore() }
+                    if args.contains("--menu") {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { model.openMenu() }
+                    }
                     if args.contains("--settings") {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { model.showingLibrary = true }
                     }

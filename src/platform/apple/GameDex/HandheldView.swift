@@ -60,6 +60,7 @@ struct GameDexView: View {
         .onAppear { focused = true }
         #if os(iOS)
         .onKeyPress(phases: [.down, .repeat, .up]) { key in
+            guard !model.showingMenu, !model.showingLibrary, !model.showingPlayback, !model.importing else { return .ignored }
             guard let mask = GameModel.keyboard(key.characters, shift: key.modifiers.contains(.shift)) else { return .ignored }
             let source = "keyboard-\(key.key.character)"
             if key.phase == .up { model.release(source) } else { model.hold(source, mask) }
@@ -71,7 +72,7 @@ struct GameDexView: View {
             else if case .failure(let error) = result { model.message = error.localizedDescription }
             focused = true
         }
-        .onChange(of: model.importing) { _, open in model.clear(); model.emulator.setPaused(open || model.paused || model.showingLibrary || model.showingPlayback) }
+        .onChange(of: model.importing) { _, _ in model.updatePauseState() }
         .sheet(isPresented: $model.showingLibrary) { LibraryView(model: model) }
         .onChange(of: model.showingLibrary) { _, open in model.libraryChanged(open); if !open { focused = true } }
         .alert("GameDex", isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })) {
@@ -103,8 +104,6 @@ struct Handheld: View {
                 }.buttonStyle(.plain).disabled(!model.loaded)
                     .accessibilityLabel(model.recording ? "Stop recording" : "Start recording")
                 Spacer(minLength: 0)
-                icon(model.paused ? "play.fill" : "pause.fill", label: model.paused ? "Resume" : "Pause") { model.pause() }
-                    .disabled(!model.loaded)
                 #if os(iOS)
                 icon("gearshape", label: "Settings & Sessions") { model.showingLibrary = true }
                 #else
@@ -161,10 +160,9 @@ struct Handheld: View {
             }
             .frame(maxWidth: .infinity)
             .overlay(alignment: .topLeading) {
-                Button { model.showingLibrary = true } label: { Text("MENU") }
+                Button { model.openMenu() } label: { Text("MENU") }
                     .buttonStyle(MenuDotStyle())
-                    .accessibilityLabel(mobile ? "Menu, Settings & Sessions" : "Menu, Settings")
-                    .help(mobile ? "Settings & Sessions" : "Settings")
+                    .accessibilityLabel("Pause menu").help("Pause menu")
                     .padding(.leading, 8)
             }.padding(.top, mobile ? 10 : 20)
             Spacer().frame(height: 24)
@@ -179,6 +177,10 @@ struct Handheld: View {
         .foregroundStyle(ink)
         .background(LinearGradient(colors: [Color(white: 0.96), shell, Color(red: 0.83, green: 0.83, blue: 0.88)], startPoint: .topLeading, endPoint: .bottomTrailing))
         .overlay(alignment: .trailing) { Rectangle().fill(.black.opacity(0.09)).frame(width: 1) }
+        .blur(radius: model.showingMenu ? 12 : 0)
+        .allowsHitTesting(!model.showingMenu)
+        .accessibilityHidden(model.showingMenu)
+        .overlay { if model.showingMenu { PauseMenu(model: model) } }
     }
     private func icon(_ image: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) { Image(systemName: image).font(.system(size: 15, weight: .medium)).frame(width: 36, height: 44) }
@@ -209,6 +211,44 @@ struct Handheld: View {
             .gesture(DragGesture(minimumDistance: 0).onChanged { _ in model.hold("touch-\(bit)", 1 << bit) }.onEnded { _ in model.release("touch-\(bit)") })
             .accessibilityLabel(mobile ? title : "\(title), \(hint)").accessibilityAddTraits(.isButton)
             .accessibilityAction { model.hold("accessibility", 1 << bit); DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { model.release("accessibility") } }
+    }
+}
+
+private struct PauseMenu: View {
+    @ObservedObject var model: GameModel
+    #if os(macOS)
+    private let settingsTitle = "Settings"
+    #else
+    private let settingsTitle = "Settings & Sessions"
+    #endif
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+            VStack(spacing: 18) {
+                Image(systemName: "pause.fill").font(.system(size: 64, weight: .bold)).foregroundStyle(violet)
+                Text(model.title).font(.system(size: 22, weight: .medium, design: .rounded))
+                    .multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.85)).padding(.horizontal, 24)
+            }
+            Spacer()
+            VStack(spacing: 24) {
+                HStack {
+                    Text("Paused").font(.headline)
+                    Spacer()
+                    Button("Resume") { model.resumeGame() }.font(.headline).tint(violet)
+                        .buttonStyle(.borderedProminent).keyboardShortcut(.escape, modifiers: [])
+                }
+                Button { model.showingLibrary = true } label: {
+                    VStack(spacing: 10) {
+                        Image(systemName: "gearshape").font(.system(size: 30, weight: .medium))
+                        Text(settingsTitle).font(.subheadline.weight(.semibold))
+                    }.frame(maxWidth: .infinity).padding(.vertical, 22)
+                        .background(violet.opacity(0.18), in: RoundedRectangle(cornerRadius: 16))
+                }.buttonStyle(.plain).foregroundStyle(.white.opacity(0.9))
+            }.padding(24).padding(.bottom, 16)
+                .background(Color(red: 0.13, green: 0.10, blue: 0.19).opacity(0.96))
+        }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.black.opacity(0.72)).foregroundStyle(.white)
+            .accessibilityAddTraits(.isModal)
     }
 }
 
