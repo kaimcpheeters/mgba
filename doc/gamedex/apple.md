@@ -35,7 +35,7 @@ are not overwritten. GameDex remembers the last imported game.
   using the display’s reported physical dimensions and logical point size at launch
   and when changing displays. Monitor reports can be approximate; unavailable
   dimensions fall back to 308 points wide. No permissions are needed.
-- **Expanded:** the handheld keeps its size and position; a 320-point session panel
+- **Expanded:** the handheld keeps its size and position; a 320-point Sessions panel
   opens on its right. The Mac window grows from its existing left edge, shifting only if needed to fit the display.
 - **iPhone:** the game image spans the entire available portrait width, preserving
   GBA's 3:2 aspect ratio. The controls fit below it within the safe area. The iOS toolbar has recording, pause and settings controls; expansion
@@ -47,8 +47,14 @@ are not overwritten. GameDex remembers the last imported game.
   margins. Small displays scroll instead of silently shrinking the image.
   The desktop toolbar contains recording, pause and expansion only.
 - **REC light:** start/stop a recording without resetting the game. Starts off.
-- **Gear:** settings and recordings, with playback that combines MP4 and WAV.
-  Browsing pauses the game. Mac offers Finder access; iOS exposes Documents in
+- **Sessions:** desktop sessions live in the expanded panel, separate from Settings.
+  iPhone combines them in **Settings & Sessions**. Both use the same session cards:
+  local date/time, game, precise duration, encoded frame count, and metadata status.
+  All/Pending filters, refresh, playback, and confirmed deletion are shared; desktop
+  adds Finder access and iPhone adds sharing. Deletion is disabled during recording.
+  Pending means saved locally awaiting upload; no uploader is configured.
+- **Gear:** Settings on desktop; Settings & Sessions on iPhone. Playback combines MP4 and WAV.
+  Opening settings or playback pauses the game; the desktop session list can stay open while recording. Mac offers Finder access; iOS exposes Documents in
   Files and can share the video track. Raw GameDex audio and logs remain separate.
 
 | GBA | Keyboard |

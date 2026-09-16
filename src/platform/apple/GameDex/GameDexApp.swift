@@ -43,7 +43,7 @@ struct GameDexApp {
         fullScreen.keyEquivalentModifierMask = [.command, .control]
         NSApp.mainMenu = menu
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
-            guard let self, self.window.isKeyWindow, !self.model.showingLibrary, !self.model.importing,
+            guard let self, self.window.isKeyWindow, !self.model.showingLibrary, !self.model.showingPlayback, !self.model.importing,
                   !event.modifierFlags.contains(.command), !event.modifierFlags.contains(.control), !event.modifierFlags.contains(.option) else { return event }
             if event.type == .keyDown && event.keyCode == 53 && self.model.desktopFullScreen {
                 self.window.toggleFullScreen(nil); return nil
@@ -60,6 +60,7 @@ struct GameDexApp {
         if let index = args.firstIndex(of: "--layout-preview"), index + 1 < args.count {
             let url = URL(fileURLWithPath: args[index + 1])
             if args.contains("--preview-2x") { model.setDesktopScale(2) }
+            if args.contains("--preview-expanded") { model.expand() }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 self.snapshot(url); NSApp.terminate(nil)
             }
@@ -175,6 +176,9 @@ struct GameDexApp: App {
                     let args = CommandLine.arguments
                     if let index = args.firstIndex(of: "--rom"), index + 1 < args.count { model.load(URL(fileURLWithPath: args[index + 1])) }
                     else { model.restore() }
+                    if args.contains("--settings") {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { model.showingLibrary = true }
+                    }
                     if args.contains("--capture-test") {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { model.emulator.toggleRecording(); model.hold("test", 1) }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { model.release("test"); model.hold("test", 16) }

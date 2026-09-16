@@ -71,7 +71,7 @@ struct GameDexView: View {
             else if case .failure(let error) = result { model.message = error.localizedDescription }
             focused = true
         }
-        .onChange(of: model.importing) { _, open in model.clear(); model.emulator.setPaused(open || model.paused || model.showingLibrary) }
+        .onChange(of: model.importing) { _, open in model.clear(); model.emulator.setPaused(open || model.paused || model.showingLibrary || model.showingPlayback) }
         .sheet(isPresented: $model.showingLibrary) { LibraryView(model: model) }
         .onChange(of: model.showingLibrary) { _, open in model.libraryChanged(open); if !open { focused = true } }
         .alert("GameDex", isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })) {
@@ -106,7 +106,7 @@ struct Handheld: View {
                 icon(model.paused ? "play.fill" : "pause.fill", label: model.paused ? "Resume" : "Pause") { model.pause() }
                     .disabled(!model.loaded)
                 #if os(iOS)
-                icon("gearshape", label: "Settings and recordings") { model.showingLibrary = true }
+                icon("gearshape", label: "Settings & Sessions") { model.showingLibrary = true }
                 #else
                 icon(model.expanded ? "sidebar.right" : "sidebar.left", label: model.expanded ? "Collapse details" : "Expand details") { model.expand() }
                 #endif
@@ -245,26 +245,148 @@ struct Details: View {
         ScrollView { content }.background(Color(red: 0.97, green: 0.97, blue: 0.98)).foregroundStyle(ink)
     }
     var content: some View {
-        VStack(alignment: .leading, spacing: 26) {
+        VStack(alignment: .leading, spacing: 20) {
             HStack {
+                PageHeading(title: "Sessions")
                 Spacer()
                 Button { model.showingLibrary = true } label: {
                     Image(systemName: "gearshape").font(.system(size: 15, weight: .medium)).frame(width: 36, height: 44)
-                }.buttonStyle(.plain).accessibilityLabel("Settings and recordings").help("Settings and recordings")
+                }.buttonStyle(.plain).accessibilityLabel("Settings").help("Settings")
             }
-            VStack(alignment: .leading, spacing: 12) {
-                Text("CURRENT SESSION").font(.system(size: 10, weight: .bold)).tracking(1.7).foregroundStyle(.secondary)
-                Text(model.title).font(.headline)
-                HStack {
-                    Circle().fill(model.recording ? .red : .gray).frame(width: 7, height: 7)
-                    Text(model.recording ? "Recording • \(time(model.seconds))" : "Recording is off").font(.subheadline)
-                }
-                Button(model.recording ? "Stop & save recording" : "Start recording") {
-                    model.emulator.toggleRecording()
-                }.buttonStyle(.borderedProminent).tint(violet).disabled(!model.loaded)
-            }
-        }.padding(26).frame(maxWidth: .infinity, alignment: .topLeading)
+            SessionsView(model: model)
+        }.padding(22).frame(maxWidth: .infinity, alignment: .topLeading)
             .background(Color(red: 0.97, green: 0.97, blue: 0.98)).foregroundStyle(ink)
+    }
+}
+
+private struct PageHeading: View {
+    let title: String
+    var body: some View { Text(title).font(.system(size: 23, weight: .bold, design: .rounded)).foregroundStyle(ink) }
+}
+
+private struct SessionsView: View {
+    @ObservedObject var model: GameModel
+    @State private var pendingOnly = false
+    @State private var selected: Take?
+    @State private var deleting: Take?
+    private var visibleTakes: [Take] { model.takes.filter { !pendingOnly || $0.status == "pending" } }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                ForEach([false, true], id: \.self) { pending in
+                    Button { pendingOnly = pending } label: {
+                        Text(pending ? "Pending" : "All").font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, 12).padding(.vertical, 7)
+                            .background(pendingOnly == pending ? violet.opacity(0.15) : Color.clear, in: Capsule())
+                    }.buttonStyle(.plain).accessibilityAddTraits(pendingOnly == pending ? .isSelected : [])
+                }
+                Spacer(minLength: 0)
+                Button { model.refresh() } label: { Image(systemName: "arrow.clockwise") }
+                    .buttonStyle(.plain).accessibilityLabel("Refresh sessions").help("Refresh sessions")
+                #if os(macOS)
+                Button { NSWorkspace.shared.open(model.library) } label: { Image(systemName: "folder") }
+                    .buttonStyle(.plain).accessibilityLabel("Open sessions folder").help("Open sessions folder")
+                #endif
+            }
+            Text("\(visibleTakes.count) sessions").font(.caption).foregroundStyle(.secondary)
+            if visibleTakes.isEmpty {
+                Text(pendingOnly ? "No pending sessions." : "No sessions yet. Use REC to start recording.")
+                    .font(.subheadline).foregroundStyle(.secondary).padding(.vertical, 12)
+            }
+            ForEach(visibleTakes) { take in
+                SessionRow(take: take, canDelete: !model.recording, play: { selected = take }, delete: { deleting = take })
+            }
+            if visibleTakes.contains(where: { $0.status == "pending" }) {
+                Text("Pending sessions are saved locally. Upload is not configured.").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .onAppear { model.refresh() }
+        .onChange(of: selected?.id) { _, id in model.playbackChanged(id != nil) }
+        .sheet(item: $selected, onDismiss: { model.playbackChanged(false) }) { take in
+            SessionPlaybackView(take: take)
+        }
+        .alert("Delete session?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            Button("Cancel", role: .cancel) { deleting = nil }
+            Button("Delete", role: .destructive) { if let take = deleting { model.deleteTake(take) }; deleting = nil }
+        } message: { Text("This removes the session’s video, audio, and input logs from this device.") }
+    }
+}
+
+private struct SessionRow: View {
+    let take: Take
+    let canDelete: Bool
+    let play: () -> Void
+    let delete: () -> Void
+    private var statusColor: Color {
+        switch take.status { case "pending": return .orange; case "uploaded": return .green; case "failed", "incomplete": return .red; default: return .secondary }
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(take.title).font(.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
+            Text(take.displayDate).font(.caption).foregroundStyle(.secondary)
+            HStack(alignment: .top) {
+                metric("Duration", value: take.duration)
+                Spacer()
+                metric("Frames", value: take.frames?.formatted() ?? "—")
+                Spacer()
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Status").font(.caption2).foregroundStyle(.secondary)
+                    Text(take.status.capitalized).font(.caption.weight(.semibold)).foregroundStyle(statusColor)
+                        .padding(.horizontal, 7).padding(.vertical, 4).background(statusColor.opacity(0.12), in: Capsule())
+                }
+            }
+            HStack(spacing: 16) {
+                Button(action: play) { Label("Play", systemImage: "play.fill") }.disabled(!take.complete).buttonStyle(.bordered)
+                Spacer(minLength: 0)
+                #if os(macOS)
+                Button { NSWorkspace.shared.activateFileViewerSelecting([take.id]) } label: { Image(systemName: "folder") }
+                    .buttonStyle(.plain).accessibilityLabel("Show session files").help("Show session files")
+                #else
+                ShareLink(item: take.video) { Image(systemName: "square.and.arrow.up") }.disabled(!take.complete)
+                #endif
+                Button(role: .destructive, action: delete) { Image(systemName: "trash") }
+                    .buttonStyle(.plain).disabled(!canDelete).accessibilityLabel("Delete session").help("Delete session")
+            }.font(.subheadline)
+        }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(0.75), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(ink.opacity(0.08)))
+    }
+    private func metric(_ title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title).font(.caption2).foregroundStyle(.secondary)
+            Text(value).font(.system(size: 12, weight: .medium, design: .monospaced))
+        }
+    }
+}
+
+private struct SessionPlaybackView: View {
+    let take: Take
+    @Environment(\.dismiss) private var dismiss
+    @State private var player: AVPlayer?
+    @State private var failure: String?
+    var body: some View {
+        VStack(spacing: 16) {
+            if let failure { Text(failure).foregroundStyle(.secondary) }
+            else { VideoPlayer(player: player).aspectRatio(1.5, contentMode: .fit) }
+            Button("Done") { dismiss() }
+        }.padding().frame(minWidth: 300, minHeight: 260)
+            .task(id: take.id) { await load() }
+            .onDisappear { player?.pause(); player = nil }
+    }
+    @MainActor private func load() async {
+        do {
+            let composition = AVMutableComposition()
+            let video = AVURLAsset(url: take.video), audio = AVURLAsset(url: take.id.appendingPathComponent("audio.wav"))
+            let duration = try await video.load(.duration)
+            if let track = try await video.loadTracks(withMediaType: .video).first {
+                try composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)?.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: track, at: .zero)
+            }
+            if let track = try await audio.loadTracks(withMediaType: .audio).first {
+                try composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)?.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: track, at: .zero)
+            }
+            try Task.checkCancellation()
+            player = AVPlayer(playerItem: AVPlayerItem(asset: composition)); player?.play()
+        } catch is CancellationError { } catch { failure = error.localizedDescription }
     }
 }
 
@@ -297,66 +419,35 @@ private struct DesktopDisplayControls: View {
 private struct LibraryView: View {
     @ObservedObject var model: GameModel
     @Environment(\.dismiss) var dismiss
-    @State private var selected: Take?
-    @State private var player: AVPlayer?
+    #if os(macOS)
+    private let title = "Settings"
+    #else
+    private let title = "Settings & Sessions"
+    #endif
     var body: some View {
         NavigationStack {
             List {
+                Section { PageHeading(title: title).padding(.vertical, 4) }
                 Section("Game") {
                     Button("Open a GBA game…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { model.importing = true } }
                     Text("Recording starts off. Closing the app finishes the active take.").font(.caption).foregroundStyle(.secondary)
                 }
                 #if os(macOS)
                 Section("Display") { DesktopDisplayControls(model: model) }
-                #endif
-                Section("Recordings") {
-                    if model.takes.isEmpty { Text("No recordings yet. Tap the REC light to start.").foregroundStyle(.secondary) }
-                    ForEach(model.takes) { take in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(take.title).font(.headline)
-                                Text("\(time(take.seconds)) · \(take.date.prefix(10)) · \(take.complete ? "Saved" : "Incomplete")").font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button { selected = take; play(take) } label: { Image(systemName: "play.circle.fill").font(.title2) }.disabled(!take.complete).buttonStyle(.plain).accessibilityLabel("Play recording")
-                            #if os(macOS)
-                            Button { NSWorkspace.shared.activateFileViewerSelecting([take.id]) } label: { Image(systemName: "folder") }.buttonStyle(.plain).accessibilityLabel("Show recording files")
-                            #else
-                            ShareLink(item: take.video) { Image(systemName: "square.and.arrow.up") }.disabled(!take.complete)
-                            #endif
-                        }.padding(.vertical, 6)
-                    }
+                Section("Storage") {
+                    Button("Show sessions folder") { NSWorkspace.shared.open(model.library) }
+                    Text(model.library.path).font(.caption).textSelection(.enabled)
                 }
-                #if os(macOS)
-                Section("Storage") { Button("Show recordings folder") { NSWorkspace.shared.open(model.library) }; Text(model.library.path).font(.caption).textSelection(.enabled) }
+                #else
+                Section { SessionsView(model: model) } header: { Text("Sessions") }
                 #endif
             }
-            .navigationTitle("Settings & recordings")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .sheet(item: $selected, onDismiss: { player?.pause(); player = nil }) { take in
-                VStack { VideoPlayer(player: player).aspectRatio(1.5, contentMode: .fit); Button("Done") { selected = nil } }.padding().frame(minWidth: 300, minHeight: 260)
-            }
         }
         #if os(macOS)
         .frame(width: 580, height: 630)
         #endif
         .onAppear { model.refresh() }
-    }
-    private func play(_ take: Take) {
-        Task { @MainActor in
-            do {
-                let composition = AVMutableComposition()
-                let video = AVURLAsset(url: take.video), audio = AVURLAsset(url: take.id.appendingPathComponent("audio.wav"))
-                let duration = try await video.load(.duration)
-                if let track = try await video.loadTracks(withMediaType: .video).first {
-                    try composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)?.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: track, at: .zero)
-                }
-                if let track = try await audio.loadTracks(withMediaType: .audio).first {
-                    try composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)?.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: track, at: .zero)
-                }
-                player = AVPlayer(playerItem: AVPlayerItem(asset: composition)); player?.play()
-            } catch { model.message = error.localizedDescription }
-        }
     }
 }
 func time(_ seconds: Double) -> String { let n = max(0, Int(seconds)); return String(format: "%02d:%02d", n / 60, n % 60) }

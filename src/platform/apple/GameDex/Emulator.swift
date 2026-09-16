@@ -100,7 +100,18 @@ final class Emulator {
 
 struct Take: Identifiable {
     let id: URL, title: String, date: String, seconds: Double, complete: Bool
+    let frames: Int?
+    let status: String
     var video: URL { id.appendingPathComponent("video.mp4") }
+    var displayDate: String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let parsed = formatter.date(from: date) ?? ISO8601DateFormatter().date(from: date)
+        return parsed?.formatted(date: .abbreviated, time: .shortened) ?? date
+    }
+    var duration: String {
+        seconds < 60 ? String(format: "%.1fs", seconds) : "\(Int(seconds) / 60)m \(Int(seconds) % 60)s"
+    }
 }
 final class GameModel: ObservableObject {
     @Published var image: CGImage?
@@ -110,6 +121,7 @@ final class GameModel: ObservableObject {
     @Published var paused = false
     @Published var expanded = false
     @Published var showingLibrary = false
+    @Published var showingPlayback = false
     @Published var importing = false
     @Published var seconds = 0.0
     @Published var pressed: UInt32 = 0
@@ -164,17 +176,25 @@ final class GameModel: ObservableObject {
     }
     func restore() { if let path = UserDefaults.standard.string(forKey: "lastROM"), FileManager.default.fileExists(atPath: path) { load(URL(fileURLWithPath: path)) } }
     func hold(_ source: String, _ mask: UInt32) {
-        guard loaded, !paused, !showingLibrary, !importing else { return }
+        guard loaded, !paused, !showingLibrary, !showingPlayback, !importing else { return }
         sources[source] = mask; pressed = sources.values.reduce(0, |); emulator.setKeys(pressed)
     }
     func release(_ source: String) { sources.removeValue(forKey: source); pressed = sources.values.reduce(0, |); emulator.setKeys(pressed) }
     func clear() { sources.removeAll(); pressed = 0; emulator.setKeys(0) }
-    func pause() { paused.toggle(); clear(); emulator.setPaused(paused || showingLibrary) }
+    func pause() { paused.toggle(); clear(); emulator.setPaused(paused || showingLibrary || showingPlayback) }
     func focus(_ active: Bool) {
         if !active { focusPaused = !paused; clear(); emulator.setPaused(true) }
-        else if focusPaused { emulator.setPaused(paused || showingLibrary); focusPaused = false }
+        else if focusPaused { emulator.setPaused(paused || showingLibrary || showingPlayback); focusPaused = false }
     }
-    func libraryChanged(_ open: Bool) { clear(); emulator.setPaused(paused || open); if open { refresh() } }
+    func libraryChanged(_ open: Bool) { clear(); emulator.setPaused(paused || open || showingPlayback); if open { refresh() } }
+    func playbackChanged(_ open: Bool) {
+        showingPlayback = open; clear(); emulator.setPaused(paused || showingLibrary || open || focusPaused)
+    }
+    func deleteTake(_ take: Take) {
+        guard !recording, take.id.deletingLastPathComponent().standardizedFileURL == library.standardizedFileURL else { return }
+        do { try FileManager.default.removeItem(at: take.id); refresh() }
+        catch { message = error.localizedDescription }
+    }
     func expand() { expanded.toggle(); resize?(expanded) }
     func refresh() {
         let dirs = (try? FileManager.default.contentsOfDirectory(at: library, includingPropertiesForKeys: nil)) ?? []
@@ -184,7 +204,9 @@ final class GameModel: ObservableObject {
             let ext = json["mgba_capture"] as? [String: Any]
             return Take(id: dir, title: json["game_name"] as? String ?? dir.lastPathComponent,
                         date: json["start_time"] as? String ?? "", seconds: json["duration_seconds"] as? Double ?? 0,
-                        complete: ext?["complete"] as? Bool ?? false)
+                        complete: ext?["complete"] as? Bool ?? false,
+                        frames: (json["video"] as? [String: Any])?["total_frames"] as? Int,
+                        status: (ext?["complete"] as? Bool == true) ? (json["upload_status"] as? String ?? "saved") : (ext?["error"] as? String == nil ? "incomplete" : "failed"))
         }.sorted { $0.date > $1.date }
     }
     static func keyboard(_ key: String, shift: Bool = false) -> UInt32? {
