@@ -44,7 +44,7 @@ entry. Existing `lastROM` preferences migrate automatically.
 - **iPhone:** the game image spans the entire available portrait width, preserving
   GBA's 3:2 aspect ratio. The controls fit below it within the safe area. The iOS toolbar has recording, pause and settings controls; expansion
   is Mac-only. L/R sit flush with the outer edges above the main controls, and
-  the WASD hint remains visible.
+  keyboard hints appear only on desktop.
 - **Mac screen size:** choose 1× or 2× in Settings or the View menu (⌘1 / ⌘2).
   2× doubles the image dimensions to 122.4×81.6 mm, about 5.8 inches diagonal.
   Native full screen (⌃⌘F; Esc to exit) preserves the chosen size and adds dark

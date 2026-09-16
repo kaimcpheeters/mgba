@@ -169,7 +169,9 @@ struct Handheld: View {
             }.padding(.top, mobile ? 10 : 20)
             Spacer().frame(height: 24)
             HStack {
+                #if os(macOS)
                 Text("W A S D").font(.system(size: 9, weight: .semibold, design: .monospaced)).tracking(2).foregroundStyle(ink.opacity(0.35))
+                #endif
                 Spacer()
                 HStack(spacing: 5) { ForEach(0..<5) { _ in Capsule().fill(.black.opacity(0.12)).frame(width: 3, height: 23).rotationEffect(.degrees(25)) } }
             }.padding(.horizontal, 40).padding(.bottom, mobile ? 12 : 26)
@@ -195,17 +197,17 @@ struct Handheld: View {
                     .overlay(shape.stroke(.white.opacity(0.23)))
                 Text(title).font(.system(size: shoulder ? 13 : 25, weight: .bold, design: .rounded)).foregroundStyle(.white.opacity(0.9))
             }.frame(width: width, height: height).offset(y: down ? 2 : 0)
-            if !shoulder { Text(hint).font(.system(size: 7, weight: .bold, design: .monospaced)).tracking(1).foregroundStyle(ink.opacity(0.43)) }
+            if !shoulder && !mobile { Text(hint).font(.system(size: 7, weight: .bold, design: .monospaced)).tracking(1).foregroundStyle(ink.opacity(0.43)) }
         }.contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { _ in model.hold("touch-\(bit)", 1 << bit) }.onEnded { _ in model.release("touch-\(bit)") })
-            .accessibilityLabel("\(title), \(hint)").accessibilityAddTraits(.isButton)
+            .accessibilityLabel(mobile ? title : "\(title), \(hint)").accessibilityAddTraits(.isButton)
             .accessibilityAction { model.hold("accessibility", 1 << bit); DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { model.release("accessibility") } }
     }
     private func smallButton(_ title: String, hint: String, bit: Int) -> some View {
         AuxiliaryButtonFace(title: title, hint: hint, pressed: model.pressed & (1 << bit) != 0)
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { _ in model.hold("touch-\(bit)", 1 << bit) }.onEnded { _ in model.release("touch-\(bit)") })
-            .accessibilityLabel("\(title), \(hint)").accessibilityAddTraits(.isButton)
+            .accessibilityLabel(mobile ? title : "\(title), \(hint)").accessibilityAddTraits(.isButton)
             .accessibilityAction { model.hold("accessibility", 1 << bit); DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { model.release("accessibility") } }
     }
 }
@@ -225,7 +227,11 @@ private struct AuxiliaryButtonFace: View {
                 .shadow(color: .black.opacity(pressed ? 0.1 : 0.25), radius: 1, y: pressed ? 0 : 2)
                 .offset(y: pressed ? 1 : 0)
             Text(title).font(.system(size: 8, weight: .bold)).tracking(0.8)
+            #if os(macOS)
             Text(hint.isEmpty ? " " : hint).font(.system(size: 8, design: .monospaced)).foregroundStyle(ink.opacity(0.4))
+            #else
+            Color.clear.frame(height: 10).accessibilityHidden(true)
+            #endif
         }.frame(width: 56, height: 65).foregroundStyle(ink)
     }
 }
@@ -259,7 +265,12 @@ private struct DPad: View {
                 if dy < -19 { mask |= 1 << 6 }; if dy > 19 { mask |= 1 << 7 }
                 model.hold("dpad", mask)
             }.onEnded { _ in model.release("dpad") })
-            .accessibilityElement(children: .ignore).accessibilityLabel("Directional pad. W A S D.")
+            .accessibilityElement(children: .ignore)
+            #if os(macOS)
+            .accessibilityLabel("Directional pad. W A S D.")
+            #else
+            .accessibilityLabel("Directional pad")
+            #endif
             .accessibilityAction(named: "Up") { pulse(6) }.accessibilityAction(named: "Down") { pulse(7) }
             .accessibilityAction(named: "Left") { pulse(5) }.accessibilityAction(named: "Right") { pulse(4) }
     }
