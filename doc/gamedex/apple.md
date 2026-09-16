@@ -1,4 +1,4 @@
-# GameDex Pocket for Apple platforms
+# GameDex for Apple platforms
 
 The Apple frontend shares SwiftUI views, an mGBA C bridge, playback, and native
 AVFoundation recording across macOS and iOS. The core is statically linked.
@@ -10,12 +10,12 @@ Requires Xcode, CMake and XcodeGen (`brew install cmake xcodegen`). From the for
 
 ```sh
 ./tools/gamedex/build-apple.sh macos
-open 'build-apple-app-macos/Build/Products/Debug/GameDex Pocket.app'
+open 'build-apple-app-macos/Build/Products/Debug/GameDex.app'
 ./tools/gamedex/build-apple.sh simulator
 ./tools/gamedex/build-apple.sh ios
 ```
 
-The generated `src/platform/apple/GameDexPocket.xcodeproj` contains separate Mac
+The generated `src/platform/apple/GameDex.xcodeproj` contains separate Mac
 and iOS app targets using the same source files. Minimum versions are macOS 14
 and iOS 17. The current build scripts target arm64 (Apple Silicon, iPhone/iPad,
 and Apple Silicon Simulator). Select your development team in Xcode to sign a
@@ -108,7 +108,7 @@ There is no upload client. Incomplete/error sessions never become `pending`.
 
 ```sh
 python3 tools/gamedex/apple-test.py \
- 'build-apple-app-macos/Build/Products/Debug/GameDex Pocket.app'
+ 'build-apple-app-macos/Build/Products/Debug/GameDex.app'
 ```
 
 This opens a native window, sends all ten mappings through the app's local event

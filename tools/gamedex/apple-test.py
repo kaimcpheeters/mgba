@@ -9,7 +9,7 @@ import tempfile
 from validate import validate
 
 app = pathlib.Path(sys.argv[1]).resolve()
-exe = app / 'Contents/MacOS/GameDex Pocket'
+exe = app / 'Contents/MacOS/GameDex'
 root = pathlib.Path(__file__).resolve().parent
 with tempfile.TemporaryDirectory(prefix='gamedex-apple-test-') as temp:
     temp = pathlib.Path(temp)

@@ -1,7 +1,7 @@
 # Native GBA capture with GameDex exports
 
 For the SwiftUI Mac/iPhone app with handheld controls and compact/expanded modes,
-see [GameDex Pocket for Apple platforms](apple.md). The SDL instructions below
+see [GameDex for Apple platforms](apple.md). The SDL instructions below
 remain available for command-line capture and other platforms.
 
 Upstream base: `mgba-emu/mgba` master at

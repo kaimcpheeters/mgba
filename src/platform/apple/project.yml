@@ -1,4 +1,4 @@
-name: GameDexPocket
+name: GameDex
 options:
   bundleIdPrefix: dev.gamedex
   deploymentTarget:
@@ -11,23 +11,23 @@ settings:
     SWIFT_OBJC_BRIDGING_HEADER: Bridge/GameDexBridge.h
     GENERATE_INFOPLIST_FILE: YES
     CURRENT_PROJECT_VERSION: 1
-    MARKETING_VERSION: '0.2.0'
+    MARKETING_VERSION: '2.0.0'
     CODE_SIGN_STYLE: Automatic
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     OTHER_LDFLAGS: ['$(inherited)', '-lmgba', '-lgamedex-bridge', '-lz']
-    INFOPLIST_KEY_CFBundleDisplayName: GameDex Pocket
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    INFOPLIST_KEY_CFBundleDisplayName: GameDex
     INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.games
     INFOPLIST_KEY_NSHumanReadableCopyright: 'mGBA contributors / GameDex. MPL-2.0.'
 targets:
   GameDexMac:
     type: application
     platform: macOS
-    sources: [GameDex, Bridge/GameDexBridge.h, {path: ../../../LICENSE, buildPhase: resources}, {path: ../../../res/mgba.icns, buildPhase: resources}]
+    sources: [GameDex, Bridge/GameDexBridge.h, {path: ../../../LICENSE, buildPhase: resources}]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.gamedex.pocket.mac
-        INFOPLIST_KEY_CFBundleIconFile: mgba
-        PRODUCT_NAME: GameDex Pocket
+        PRODUCT_NAME: GameDex
         LIBRARY_SEARCH_PATHS: ['$(inherited)', '$(SRCROOT)/../../../build-apple-macos']
   GameDexIOS:
     type: application
@@ -36,7 +36,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.gamedex.pocket
-        PRODUCT_NAME: GameDex Pocket
+        PRODUCT_NAME: GameDex
         TARGETED_DEVICE_FAMILY: '1,2'
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES

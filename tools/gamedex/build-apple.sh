@@ -10,6 +10,6 @@ case "$platform" in
  simulator) scheme=GameDexIOS; destination='generic/platform=iOS Simulator' ;;
  ios) scheme=GameDexIOS; destination='generic/platform=iOS' ;;
 esac
-xcodebuild -project "$root/src/platform/apple/GameDexPocket.xcodeproj" -scheme "$scheme" \
+xcodebuild -project "$root/src/platform/apple/GameDex.xcodeproj" -scheme "$scheme" \
  -configuration Debug -destination "$destination" -derivedDataPath "$root/build-apple-app-$platform" \
  CODE_SIGNING_ALLOWED=NO build

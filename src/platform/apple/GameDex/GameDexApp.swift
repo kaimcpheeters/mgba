@@ -24,7 +24,7 @@ struct GameDexApp {
         model = GameModel(libraryOverride: testDirectory?.appendingPathComponent("recordings"))
         updateDisplaySizing(NSScreen.main)
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: model.desktopShellWidth, height: model.desktopShellHeight), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-        window.title = "GameDex Pocket"; window.delegate = self
+        window.title = "GameDex"; window.delegate = self
         window.collectionBehavior.insert(.fullScreenPrimary)
         window.contentView = NSHostingView(rootView: GameDexView(model: model))
         window.center(); window.isReleasedWhenClosed = false
