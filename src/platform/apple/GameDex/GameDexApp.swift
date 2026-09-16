@@ -59,6 +59,7 @@ struct GameDexApp {
         // Render a layout preview without taking focus or exercising window modes.
         if let index = args.firstIndex(of: "--layout-preview"), index + 1 < args.count {
             let url = URL(fileURLWithPath: args[index + 1])
+            if args.contains("--preview-2x") { model.setDesktopScale(2) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 self.snapshot(url); NSApp.terminate(nil)
             }

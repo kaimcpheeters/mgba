@@ -113,6 +113,7 @@ struct Handheld: View {
     #else
     private let mobile = false
     #endif
+    private var bezelScale: CGFloat { mobile ? 1 : CGFloat(model.desktopScale) }
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 8) {
@@ -137,7 +138,7 @@ struct Handheld: View {
                 #endif
             }.padding(.horizontal, 18).padding(.top, mobile ? 8 : 18)
             VStack(spacing: 0) {
-                if !mobile { Color.clear.frame(height: 30) }
+                if !mobile { Color.clear.frame(height: 30 * bezelScale) }
                 ZStack {
                     Color(red: 0.055, green: 0.065, blue: 0.055)
                     if let image = model.image {
@@ -155,7 +156,7 @@ struct Handheld: View {
                             .padding(14).background(.ultraThinMaterial, in: Capsule())
                     }
                 }.frame(width: mobile ? 390 : model.desktopGameWidth, height: mobile ? 260 : model.desktopGameWidth / 1.5).clipped()
-                .padding(.horizontal, mobile ? 0 : 16)
+                .padding(.horizontal, mobile ? 0 : 16 * bezelScale)
                 if !mobile {
                     HStack(alignment: .center, spacing: 2) {
                         Text("GAME BOY")
@@ -164,10 +165,13 @@ struct Handheld: View {
                         AdvanceWordmark().stroke(style: StrokeStyle(lineWidth: 1.05, lineCap: .square, lineJoin: .miter))
                             .frame(width: 64, height: 8).offset(y: 1)
                     }
+                        .fixedSize().frame(height: 16)
+                        .scaleEffect(bezelScale)
+                        .frame(height: 16 * bezelScale)
                         .accessibilityElement(children: .ignore).accessibilityLabel("Game Boy Advance")
                         .foregroundStyle(.white.opacity(0.68))
                         .frame(maxWidth: .infinity)
-                        .padding(.top, 14).padding(.bottom, 22)
+                        .padding(.top, 14 * bezelScale).padding(.bottom, 22 * bezelScale)
                 }
             }
             .background {
