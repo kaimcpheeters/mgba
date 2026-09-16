@@ -248,7 +248,7 @@ private struct PauseMenu: View {
                         .multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.85)).padding(.horizontal, 24)
                 }.frame(maxWidth: .infinity).frame(height: top)
                 #if os(iOS)
-                .background(Color.black.ignoresSafeArea(edges: .top))
+                .background(Color(white: 0.12).ignoresSafeArea(edges: .top))
                 #endif
                 ScrollView {
                     VStack(spacing: 16) {
