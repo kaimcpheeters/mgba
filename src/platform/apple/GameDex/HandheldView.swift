@@ -110,7 +110,7 @@ struct Handheld: View {
                     .accessibilityLabel(model.recording ? "Stop recording" : "Start recording")
                 Spacer(minLength: 0)
                 #if os(iOS)
-                icon("film.stack", label: "Recording Sessions") { model.showingSessions = true }
+                icon("play.rectangle.on.rectangle", label: "Recording Sessions") { model.showingSessions = true }
                 #else
                 icon(model.expanded ? "sidebar.right" : "sidebar.left", label: model.expanded ? "Collapse details" : "Expand details") { model.expand() }
                 #endif
