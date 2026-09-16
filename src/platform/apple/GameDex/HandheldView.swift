@@ -275,6 +275,18 @@ private struct PauseMenu: View {
                 .clipped()
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         }.background(Color.black.opacity(0.72)).foregroundStyle(.white)
+            #if os(macOS)
+            .overlay(alignment: .topTrailing) {
+                if model.expanded {
+                    Button { model.expand() } label: {
+                        Image(systemName: "sidebar.right")
+                            .font(.system(size: 15, weight: .medium)).frame(width: 36, height: 44)
+                    }.buttonStyle(.plain).foregroundStyle(.white.opacity(0.85))
+                        .accessibilityLabel("Collapse details").help("Collapse details")
+                        .padding(18)
+                }
+            }
+            #endif
             .accessibilityAddTraits(.isModal)
     }
     private func action(_ title: String, icon: String, detail: String, disabled: Bool = false, active: Bool = false, perform: @escaping () -> Void) -> some View {
