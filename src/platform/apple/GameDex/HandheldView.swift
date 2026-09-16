@@ -86,6 +86,11 @@ struct GameDexView: View {
     }
 }
 
+private struct ShoulderBoundsKey: PreferenceKey {
+    static var defaultValue: Anchor<CGRect>? { nil }
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) { value = nextValue() ?? value }
+}
+
 struct Handheld: View {
     @ObservedObject var model: GameModel
     #if os(iOS)
@@ -150,7 +155,7 @@ struct Handheld: View {
                 hold("L", hint: "Q", bit: 9, width: 114, height: 44, shoulder: true)
                 Spacer(minLength: 0)
                 hold("R", hint: "E", bit: 8, width: 114, height: 44, shoulder: true)
-            }
+            }.anchorPreference(key: ShoulderBoundsKey.self, value: .bounds) { $0 }
             HStack(alignment: .center, spacing: 43) {
                 DPad(model: model).frame(width: 137, height: 137)
                 ZStack {
@@ -185,7 +190,13 @@ struct Handheld: View {
         .blur(radius: model.showingMenu ? 12 : 0)
         .allowsHitTesting(!model.showingMenu)
         .accessibilityHidden(model.showingMenu)
-        .overlay { if model.showingMenu { PauseMenu(model: model) } }
+        .overlayPreferenceValue(ShoulderBoundsKey.self) { shoulderBounds in
+            GeometryReader { geometry in
+                if model.showingMenu, let shoulderBounds {
+                    PauseMenu(model: model, panelTop: geometry[shoulderBounds].minY)
+                }
+            }
+        }
     }
     private func icon(_ image: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) { Image(systemName: image).font(.system(size: 15, weight: .medium)).frame(width: 36, height: 44) }
@@ -221,38 +232,42 @@ struct Handheld: View {
 
 private struct PauseMenu: View {
     @ObservedObject var model: GameModel
+    let panelTop: CGFloat
     private let settingsTitle = "Settings"
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-            VStack(spacing: 18) {
-                Image(systemName: "pause.fill").font(.system(size: 64, weight: .bold)).foregroundStyle(violet)
-                Text(model.title).font(.system(size: 22, weight: .medium, design: .rounded))
-                    .multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.85)).padding(.horizontal, 24)
-            }
-            Spacer()
-            VStack(spacing: 24) {
-                HStack {
-                    Text("Paused").font(.headline)
-                    Spacer()
-                    Button("Resume") { model.resumeGame() }.font(.headline).tint(violet)
-                        .buttonStyle(.borderedProminent).keyboardShortcut(.escape, modifiers: [])
+        GeometryReader { geometry in
+            let top = min(max(0, panelTop), geometry.size.height)
+            VStack(spacing: 0) {
+                VStack(spacing: 18) {
+                    Image(systemName: "pause.fill").font(.system(size: 64, weight: .bold)).foregroundStyle(violet)
+                    Text(model.title).font(.system(size: 22, weight: .medium, design: .rounded))
+                        .multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.85)).padding(.horizontal, 24)
+                }.frame(maxWidth: .infinity).frame(height: top)
+                ScrollView {
+                    VStack(spacing: 16) {
+                        HStack {
+                            Text("Paused").font(.headline)
+                            Spacer()
+                            Button("Resume") { model.resumeGame() }.font(.headline).tint(violet)
+                                .buttonStyle(.borderedProminent).keyboardShortcut(.escape, modifiers: [])
+                        }
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                            action("Save State", icon: "square.and.arrow.down", detail: "Quick save", disabled: !model.loaded) { model.saveState() }
+                            action("Load State", icon: "square.and.arrow.up", detail: "Latest save", disabled: !model.loaded || !model.stateAvailable) { model.loadState() }
+                            action("Fast Forward", icon: "forward.fill", detail: model.fastForward ? "2× · On" : "Off", disabled: !model.loaded, active: model.fastForward) { model.toggleFastForward() }
+                            action(settingsTitle, icon: "gearshape", detail: "Preferences") { model.showingLibrary = true }
+                        }
+                        Text(model.menuNotice ?? " ")
+                            .font(.caption).foregroundStyle(.white.opacity(0.7))
+                            .lineLimit(2).frame(height: 34, alignment: .top)
+                            .accessibilityHidden(model.menuNotice == nil)
+                    }.padding(18)
                 }
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                    action("Save State", icon: "square.and.arrow.down", detail: "Quick save", disabled: !model.loaded) { model.saveState() }
-                    action("Load State", icon: "square.and.arrow.up", detail: "Latest save", disabled: !model.loaded || !model.stateAvailable) { model.loadState() }
-                    action("Fast Forward", icon: "forward.fill", detail: model.fastForward ? "2× · On" : "Off", disabled: !model.loaded, active: model.fastForward) { model.toggleFastForward() }
-                    action(settingsTitle, icon: "gearshape", detail: "Preferences") { model.showingLibrary = true }
-                }
-                Text(model.menuNotice ?? " ")
-                    .font(.caption).foregroundStyle(.white.opacity(0.7))
-                    .lineLimit(2).frame(height: 34, alignment: .top)
-                    .accessibilityHidden(model.menuNotice == nil)
-
-            }.padding(24).padding(.bottom, 16)
+                .frame(height: geometry.size.height - top)
                 .background(Color(red: 0.13, green: 0.10, blue: 0.19).opacity(0.96))
-        }.frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.black.opacity(0.72)).foregroundStyle(.white)
+                .clipped()
+            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+        }.background(Color.black.opacity(0.72)).foregroundStyle(.white)
             .accessibilityAddTraits(.isModal)
     }
     private func action(_ title: String, icon: String, detail: String, disabled: Bool = false, active: Bool = false, perform: @escaping () -> Void) -> some View {
@@ -261,7 +276,7 @@ private struct PauseMenu: View {
                 Image(systemName: icon).font(.system(size: 27, weight: .medium))
                 Text(title).font(.system(size: 13, weight: .semibold))
                 Text(detail).font(.caption2).foregroundStyle(.white.opacity(0.6))
-            }.frame(maxWidth: .infinity).padding(.vertical, 16)
+            }.frame(maxWidth: .infinity).padding(.vertical, 10)
                 .background(violet.opacity(active ? 0.5 : 0.18), in: RoundedRectangle(cornerRadius: 14))
         }.buttonStyle(.plain).foregroundStyle(.white.opacity(disabled ? 0.3 : 0.9)).disabled(disabled)
     }
