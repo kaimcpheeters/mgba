@@ -112,7 +112,7 @@ struct GameDexApp: App {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { model.emulator.toggleRecording(); model.hold("test", 1) }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { model.release("test"); model.hold("test", 16) }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { model.release("test") }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { model.emulator.toggleRecording(); model.pause(); model.expand() }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { model.emulator.toggleRecording(); model.pause() }
                     }
                 }
                 .onChange(of: phase) { _, phase in

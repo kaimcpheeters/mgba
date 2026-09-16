@@ -35,9 +35,9 @@ are not overwritten. GameDex remembers the last imported game.
 - **Expanded:** the handheld keeps its size and position; a 320-point Studio panel
   opens on its right. The Mac window grows from its existing left edge.
 - **iPhone:** the game image spans the entire available portrait width, preserving
-  GBA's 3:2 aspect ratio. The controls fit below it within the safe area. Expanded
-  details are to the right; swipe horizontally to see them on narrow screens.
-  On wider iPad/landscape layouts, the handheld and details can sit side by side.
+  GBA's 3:2 aspect ratio. The controls fit below it within the safe area. The iOS toolbar has recording, pause, open-game and settings controls; expansion
+  is Mac-only. L/R sit flush with the outer edges above the main controls, and
+  the WASD hint remains visible.
 - **REC light:** start/stop a recording without resetting the game. Starts off.
 - **Gear:** settings and recordings, with playback that combines MP4 and WAV.
   Browsing pauses the game. Mac offers Finder access; iOS exposes Documents in

@@ -15,24 +15,26 @@ struct GameDexView: View {
             #if os(iOS)
             let width = geometry.size.width < 500 ? geometry.size.width : min(390, geometry.size.height * 9 / 19.5)
             let height = geometry.size.height
+            let expanded = false
             #else
             let width = min(390.0, min(geometry.size.width, geometry.size.height * 9 / 19.5))
             let height = width * 19.5 / 9
+            let expanded = model.expanded
             #endif
-            ScrollView(.horizontal, showsIndicators: model.expanded) {
+            ScrollView(.horizontal, showsIndicators: expanded) {
                 HStack(spacing: 0) {
                     Handheld(model: model)
                         .frame(width: 390, height: height * 390 / width)
                         .scaleEffect(width / 390, anchor: .topLeading)
                         .frame(width: width, height: height, alignment: .topLeading)
-                    if model.expanded {
+                    if expanded {
                         Details(model: model).frame(width: 320, height: height)
                             .transition(.move(edge: .trailing).combined(with: .opacity))
                     }
                 }
             }
             .frame(maxHeight: .infinity, alignment: .topLeading)
-            .scrollDisabled(!model.expanded)
+            .scrollDisabled(!expanded)
         }
         .background(shell)
         .preferredColorScheme(.light)
@@ -69,20 +71,7 @@ struct Handheld: View {
     #endif
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("GAMEDEX").font(.system(size: 22, weight: .black, design: .rounded)).tracking(2)
-                    Text("POCKET STUDIO").font(.system(size: 8, weight: .bold)).tracking(3).foregroundStyle(violet)
-                }
-                Spacer()
-                icon("folder", label: "Open game") { model.importing = true }
-                icon("gearshape", label: "Settings and recordings") { model.showingLibrary = true }
-                icon(model.expanded ? "sidebar.right" : "sidebar.left", label: model.expanded ? "Collapse details" : "Expand details") { model.expand() }
-            }.padding(.horizontal, 25).padding(.top, mobile ? 12 : 25)
-            HStack {
-                HStack(spacing: 6) { Circle().fill(model.loaded ? Color.green.opacity(0.65) : .gray).frame(width: 5, height: 5); Text(model.loaded ? "POWER" : "STANDBY").tracking(1.7) }
-                    .font(.system(size: 8, weight: .bold)).foregroundStyle(ink.opacity(0.55))
-                Spacer()
+            HStack(alignment: .center, spacing: 8) {
                 Button { model.emulator.toggleRecording() } label: {
                     HStack(spacing: 7) {
                         Circle().fill(model.recording ? .red : Color.gray.opacity(0.6)).frame(width: 6, height: 6)
@@ -94,7 +83,15 @@ struct Handheld: View {
                         .overlay(Capsule().strokeBorder(Color.black.opacity(0.05)))
                 }.buttonStyle(.plain).disabled(!model.loaded)
                     .accessibilityLabel(model.recording ? "Stop recording" : "Start recording")
-            }.padding(.horizontal, 27).padding(.top, mobile ? 12 : 27)
+                Spacer(minLength: 0)
+                icon(model.paused ? "play.fill" : "pause.fill", label: model.paused ? "Resume" : "Pause") { model.pause() }
+                    .disabled(!model.loaded)
+                icon("folder", label: "Open game") { model.importing = true }
+                icon("gearshape", label: "Settings and recordings") { model.showingLibrary = true }
+                #if os(macOS)
+                icon(model.expanded ? "sidebar.right" : "sidebar.left", label: model.expanded ? "Collapse details" : "Expand details") { model.expand() }
+                #endif
+            }.padding(.horizontal, 18).padding(.top, mobile ? 8 : 18)
             VStack(spacing: 0) {
                 if !mobile { HStack {
                     Text("ADVANCE").font(.system(size: 9, weight: .heavy, design: .rounded)).italic().tracking(2)
@@ -127,19 +124,12 @@ struct Handheld: View {
             .background(LinearGradient(colors: [Color(white: 0.19), Color(white: 0.105)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 17))
             .overlay(RoundedRectangle(cornerRadius: 17).strokeBorder(.black.opacity(mobile ? 0 : 0.55), lineWidth: 1))
             .padding(.horizontal, mobile ? 0 : 22).padding(.top, mobile ? 12 : 18)
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(model.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                    Text(model.recording ? "Capturing your adventure" : "Ready when you are").font(.system(size: 10)).foregroundStyle(ink.opacity(0.5))
-                }
-                Spacer()
-                Button { model.pause() } label: { Image(systemName: model.paused ? "play.fill" : "pause.fill").font(.system(size: 12)).frame(width: 32, height: 32).background(.black.opacity(0.04), in: Circle()) }
-                    .buttonStyle(.plain).disabled(!model.loaded).accessibilityLabel(model.paused ? "Resume" : "Pause")
-            }.padding(.horizontal, 28).padding(.top, mobile ? 10 : 20)
-            HStack(spacing: 170) {
-                hold("L", hint: "Q", bit: 9, width: 70, height: 29, shoulder: true)
-                hold("R", hint: "E", bit: 8, width: 70, height: 29, shoulder: true)
-            }.padding(.top, mobile ? 16 : 28)
+            Spacer(minLength: 28)
+            HStack(spacing: 0) {
+                hold("L", hint: "Q", bit: 9, width: 114, height: 44, shoulder: true)
+                Spacer(minLength: 0)
+                hold("R", hint: "E", bit: 8, width: 114, height: 44, shoulder: true)
+            }
             HStack(alignment: .center, spacing: 43) {
                 DPad(model: model).frame(width: 137, height: 137)
                 ZStack {
@@ -147,12 +137,12 @@ struct Handheld: View {
                     hold("B", hint: "SPACE", bit: 1, width: 59, height: 59).offset(x: -35, y: 20)
                     hold("A", hint: "RETURN", bit: 0, width: 59, height: 59).offset(x: 35, y: -20)
                 }.frame(width: 150, height: 142)
-            }.padding(.top, mobile ? 10 : 17)
+            }.padding(.top, 24)
             HStack(alignment: .top, spacing: 20) {
                 smallButton("SELECT", hint: "⇧ TAB", bit: 2)
                 smallButton("START", hint: "TAB", bit: 3)
             }.padding(.top, mobile ? 10 : 20)
-            Spacer(minLength: 12)
+            Spacer().frame(height: 24)
             HStack {
                 Text("W A S D").font(.system(size: 9, weight: .semibold, design: .monospaced)).tracking(2).foregroundStyle(ink.opacity(0.35))
                 Spacer()
@@ -164,16 +154,20 @@ struct Handheld: View {
         .overlay(alignment: .trailing) { Rectangle().fill(.black.opacity(0.09)).frame(width: 1) }
     }
     private func icon(_ image: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Image(systemName: image).font(.system(size: 15, weight: .medium)).frame(width: 29, height: 34) }
+        Button(action: action) { Image(systemName: image).font(.system(size: 15, weight: .medium)).frame(width: 36, height: 44) }
             .buttonStyle(.plain).foregroundStyle(ink.opacity(0.6)).accessibilityLabel(label).help(label)
     }
     private func hold(_ title: String, hint: String, bit: Int, width: CGFloat, height: CGFloat, shoulder: Bool = false) -> some View {
         let down = model.pressed & (1 << bit) != 0
+        let shape = shoulder
+            ? AnyShape(UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: title == "R" ? 28 : 0,
+                                             bottomTrailingRadius: title == "L" ? 28 : 0, topTrailingRadius: 0))
+            : AnyShape(RoundedRectangle(cornerRadius: 32))
         return VStack(spacing: 7) {
             ZStack {
-                RoundedRectangle(cornerRadius: shoulder ? 10 : 32).fill(LinearGradient(colors: shoulder ? [Color(white: 0.53), Color(white: 0.40)] : [Color(red: 0.55, green: 0.46, blue: 0.77), violet], startPoint: .topLeading, endPoint: .bottomTrailing))
+                shape.fill(LinearGradient(colors: shoulder ? [Color(white: 0.53), Color(white: 0.40)] : [Color(red: 0.55, green: 0.46, blue: 0.77), violet], startPoint: .topLeading, endPoint: .bottomTrailing))
                     .shadow(color: .black.opacity(down ? 0.12 : 0.28), radius: down ? 1 : 2, y: down ? 1 : 4)
-                    .overlay(RoundedRectangle(cornerRadius: shoulder ? 10 : 32).strokeBorder(.white.opacity(0.23)))
+                    .overlay(shape.stroke(.white.opacity(0.23)))
                 Text(title).font(.system(size: shoulder ? 13 : 25, weight: .bold, design: .rounded)).foregroundStyle(.white.opacity(0.9))
             }.frame(width: width, height: height).offset(y: down ? 2 : 0)
             if !shoulder { Text(hint).font(.system(size: 7, weight: .bold, design: .monospaced)).tracking(1).foregroundStyle(ink.opacity(0.43)) }
