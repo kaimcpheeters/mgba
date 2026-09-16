@@ -57,6 +57,7 @@ struct GameDexApp {
         if let rom = args.firstIndex(of: "--rom"), rom + 1 < args.count { model.load(URL(fileURLWithPath: args[rom + 1])) }
         else { model.restore() }
         if args.contains("--pause-test"), testDirectory != nil { runPauseTest(); return }
+        if args.contains("--menu-actions-test"), testDirectory != nil { runMenuActionsTest(); return }
         // Render a layout preview without taking focus or exercising window modes.
         if let index = args.firstIndex(of: "--layout-preview"), index + 1 < args.count {
             let url = URL(fileURLWithPath: args[index + 1])
@@ -111,6 +112,29 @@ struct GameDexApp {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func applicationWillTerminate(_ notification: Notification) { model.emulator.close(); if let monitor { NSEvent.removeMonitor(monitor) } }
     func application(_ sender: NSApplication, openFiles filenames: [String]) { if let file = filenames.first { model.load(URL(fileURLWithPath: file)) }; sender.reply(toOpenOrPrint: .success) }
+    func runMenuActionsTest() {
+        model.focus(true); model.emulator.toggleRecording()
+        var normalTime = 0.0
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            normalTime = self.model.seconds
+            self.model.openMenu(); self.model.saveState()
+            assert(self.model.stateAvailable && self.model.menuNotice == "State saved")
+            self.model.loadState()
+            assert(self.model.menuNotice == "State loaded" && self.model.isPaused)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            assert(!self.model.recording, "Loading state must finalize the previous take")
+            self.model.toggleFastForward(); self.model.resumeGame(); self.model.emulator.toggleRecording()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            assert(self.model.seconds > normalTime * 1.4, "Fast forward did not speed up emulation")
+            self.model.openMenu(); self.model.toggleFastForward()
+            assert(!self.model.fastForward && self.model.isPaused)
+            self.model.emulator.close()
+            print("PASS: quick save/load, recording finalization before rewind, 2× fast forward and normal-speed toggle")
+            NSApp.terminate(nil)
+        }
+    }
     func runPauseTest() {
         model.focus(true)
         model.emulator.toggleRecording()

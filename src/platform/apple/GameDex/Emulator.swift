@@ -7,6 +7,7 @@ final class Emulator {
     private let queue = DispatchQueue(label: "GameDex.emulation", qos: .userInteractive)
     private var core: OpaquePointer?, timer: DispatchSourceTimer?, recorder: Recorder?
     private var keys: UInt32 = 0, paused = false, ticks = 0
+    private var fastForward = false
     private var player = AVAudioPlayerNode(), audio = AVAudioEngine(), audioRate = 0.0, queuedAudio = 0
     var onFrame: ((CGImage, Double) -> Void)?
     var onStatus: ((Bool, String?) -> Void)?
@@ -19,13 +20,42 @@ final class Emulator {
             core = loaded; gd_frame(loaded, 0)
             let title = String(cString: gd_title(loaded))
             let timer = DispatchSource.makeTimerSource(queue: queue)
-            timer.schedule(deadline: .now(), repeating: Double(280896) / Double(16777216), leeway: .milliseconds(1))
+            timer.schedule(deadline: .now(), repeating: Double(280896) / Double(16777216) / (fastForward ? 2 : 1), leeway: .milliseconds(1))
             timer.setEventHandler { [weak self] in self?.step() }; timer.resume(); self.timer = timer
             return title
         }
     }
     func setKeys(_ mask: UInt32) { queue.async { self.keys = mask } }
     func setPaused(_ value: Bool) { queue.async { self.paused = value; if value { self.keys = 0; self.player.pause() } else if self.audio.isRunning { self.player.play() } } }
+    func setFastForward(_ enabled: Bool) {
+        queue.async {
+            self.fastForward = enabled
+            self.timer?.schedule(deadline: .now(), repeating: Double(280896) / Double(16777216) / (enabled ? 2 : 1), leeway: .milliseconds(1))
+            self.player.stop(); self.queuedAudio = 0
+            if !enabled && !self.paused && self.audio.isRunning { self.player.play() }
+        }
+    }
+    func saveState(_ url: URL) throws {
+        try queue.sync {
+            guard let core else { throw Recorder.Failure(message: "Open a game first") }
+            let temporary = url.deletingLastPathComponent().appendingPathComponent(UUID().uuidString + ".state")
+            defer { try? FileManager.default.removeItem(at: temporary) }
+            guard gd_save_state(core, temporary.path) != 0 else { throw Recorder.Failure(message: "Could not save state") }
+            try Data(contentsOf: temporary).write(to: url, options: .atomic)
+        }
+    }
+    func loadState(_ url: URL) throws {
+        try queue.sync {
+            guard let core, FileManager.default.fileExists(atPath: url.path) else { throw Recorder.Failure(message: "No saved state for this game") }
+            // A rewind must never share the previous recording's monotonic timeline.
+            stopRecording()
+            guard gd_load_state(core, url.path) != 0 else { throw Recorder.Failure(message: "Could not load this state") }
+            keys = 0; player.stop(); queuedAudio = 0
+            var discarded = [Int16](repeating: 0, count: 8192)
+            while gd_audio(core, &discarded, 4096) > 0 {}
+            publishFrame(core)
+        }
+    }
     private func bytes(_ core: OpaquePointer) -> Data { Data(bytes: gd_pixels(core), count: 240 * 160 * 4) }
     private func step() {
         guard let core, !paused else { return }
@@ -35,7 +65,7 @@ final class Emulator {
             var samples = [Int16](repeating: 0, count: 8192)
             let count = gd_audio(core, &samples, 4096); samples.removeLast(samples.count - count * 2)
             let rate = Double(gd_audio_rate(core))
-            play(samples, rate: rate)
+            if !fastForward { play(samples, rate: rate) }
             if let recorder {
                 do {
                     if gd_poll_overflow(core) != 0 { throw Recorder.Failure(message: "Input poll buffer overflow") }
@@ -44,13 +74,17 @@ final class Emulator {
                                       inputPolls: UnsafeBufferPointer(start: polls, count: n))
                 } catch { stopRecording(error: error.localizedDescription) }
             }
-            if let provider = CGDataProvider(data: pixels as CFData), let image = CGImage(width: 240, height: 160,
-                bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 960, space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue), provider: provider,
-                decode: nil, shouldInterpolate: false, intent: .defaultIntent) {
-                let seconds = recorder?.seconds ?? 0
-                DispatchQueue.main.async { [weak self] in self?.onFrame?(image, seconds) }
-            }
+            publishFrame(core)
+        }
+    }
+    private func publishFrame(_ core: OpaquePointer) {
+        let pixels = bytes(core)
+        if let provider = CGDataProvider(data: pixels as CFData), let image = CGImage(width: 240, height: 160,
+            bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 960, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue), provider: provider,
+            decode: nil, shouldInterpolate: false, intent: .defaultIntent) {
+            let seconds = recorder?.seconds ?? 0
+            DispatchQueue.main.async { [weak self] in self?.onFrame?(image, seconds) }
         }
     }
     private func play(_ samples: [Int16], rate: Double) {
@@ -121,6 +155,10 @@ final class GameModel: ObservableObject {
     @Published var paused = false
     @Published var expanded = false
     @Published var showingMenu = false
+    @Published var fastForward = false
+    @Published var stateAvailable = false
+    @Published var menuNotice: String?
+    private var stateURL: URL?
     @Published var showingLibrary = false
     @Published var showingSessions = false
     @Published var showingPlayback = false
@@ -175,6 +213,9 @@ final class GameModel: ObservableObject {
                 try FileManager.default.copyItem(at: sourceSave, to: save)
             }
             let name = try emulator.load(target, save: save)
+            stateURL = target.appendingPathExtension("state")
+            stateAvailable = FileManager.default.fileExists(atPath: stateURL!.path)
+            menuNotice = nil
             title = name.contains("POKEMON EMER") ? "Pokémon Emerald" : name
             loaded = true; paused = false; sources.removeAll(); pressed = 0; message = nil
             updatePauseState()
@@ -197,7 +238,21 @@ final class GameModel: ObservableObject {
     var isPaused: Bool { paused || showingMenu || showingLibrary || showingSessions || showingPlayback || importing || focusPaused }
     func updatePauseState() { clear(); emulator.setPaused(isPaused) }
     func pause() { paused.toggle(); updatePauseState() }
-    func openMenu() { showingMenu = true; updatePauseState() }
+    func openMenu() { menuNotice = nil; showingMenu = true; updatePauseState() }
+    func saveState() {
+        guard let stateURL else { return }
+        do { try emulator.saveState(stateURL); stateAvailable = true; menuNotice = "State saved" }
+        catch { message = error.localizedDescription }
+    }
+    func loadState() {
+        guard let stateURL else { return }
+        do { clear(); try emulator.loadState(stateURL); menuNotice = "State loaded" }
+        catch { message = error.localizedDescription }
+    }
+    func toggleFastForward() {
+        fastForward.toggle(); emulator.setFastForward(fastForward)
+        menuNotice = fastForward ? "2× speed · playback audio muted" : "Normal speed"
+    }
     func resumeGame() { showingMenu = false; paused = false; updatePauseState() }
     func focus(_ active: Bool) { focusPaused = !active; updatePauseState() }
     func libraryChanged(_ open: Bool) { updatePauseState(); if open { refresh() } }

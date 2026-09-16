@@ -53,6 +53,12 @@ entry. Existing `lastROM` preferences migrate automatically.
 - **Menu:** opens a dimmed pause overlay, clears held buttons, and freezes emulation
   and recording time. Settings remains accessible; returning from Settings keeps
   the menu paused until Resume (or Escape on desktop).
+- **Save State / Load State:** one quick slot per managed ROM, stored beside it
+  as `<ROM filename>.state`. Saving replaces that slot atomically; loading stays
+  paused and finishes an active recording before rewinding. The portable state
+  format redraws one neutral frame on load to refresh the image.
+- **Fast Forward:** toggle 2× emulation, then Resume. Playback audio is muted at
+  2×; recordings still capture all emulated video/audio with game-clock timestamps.
 - **REC light:** start/stop a recording without resetting the game. Starts off.
 - **Recording Sessions:** desktop recordings live in the expanded panel, separate
   from Settings. On iPhone, the toolbar’s film icon opens Recording Sessions;

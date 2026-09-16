@@ -238,19 +238,31 @@ private struct PauseMenu: View {
                     Button("Resume") { model.resumeGame() }.font(.headline).tint(violet)
                         .buttonStyle(.borderedProminent).keyboardShortcut(.escape, modifiers: [])
                 }
-                Button { model.showingLibrary = true } label: {
-                    VStack(spacing: 10) {
-                        Image(systemName: "gearshape").font(.system(size: 30, weight: .medium))
-                        Text(settingsTitle).font(.subheadline.weight(.semibold))
-                    }.frame(maxWidth: .infinity).padding(.vertical, 22)
-                        .background(violet.opacity(0.18), in: RoundedRectangle(cornerRadius: 16))
-                }.buttonStyle(.plain).foregroundStyle(.white.opacity(0.9))
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                    action("Save State", icon: "square.and.arrow.down", detail: "Quick save", disabled: !model.loaded) { model.saveState() }
+                    action("Load State", icon: "square.and.arrow.up", detail: "Latest save", disabled: !model.loaded || !model.stateAvailable) { model.loadState() }
+                    action("Fast Forward", icon: "forward.fill", detail: model.fastForward ? "2× · On" : "Off", disabled: !model.loaded, active: model.fastForward) { model.toggleFastForward() }
+                    action(settingsTitle, icon: "gearshape", detail: "Preferences") { model.showingLibrary = true }
+                }
+                if let notice = model.menuNotice { Text(notice).font(.caption).foregroundStyle(.white.opacity(0.7)) }
+
             }.padding(24).padding(.bottom, 16)
                 .background(Color(red: 0.13, green: 0.10, blue: 0.19).opacity(0.96))
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.black.opacity(0.72)).foregroundStyle(.white)
             .accessibilityAddTraits(.isModal)
     }
+    private func action(_ title: String, icon: String, detail: String, disabled: Bool = false, active: Bool = false, perform: @escaping () -> Void) -> some View {
+        Button(action: perform) {
+            VStack(spacing: 8) {
+                Image(systemName: icon).font(.system(size: 27, weight: .medium))
+                Text(title).font(.system(size: 13, weight: .semibold))
+                Text(detail).font(.caption2).foregroundStyle(.white.opacity(0.6))
+            }.frame(maxWidth: .infinity).padding(.vertical, 16)
+                .background(violet.opacity(active ? 0.5 : 0.18), in: RoundedRectangle(cornerRadius: 14))
+        }.buttonStyle(.plain).foregroundStyle(.white.opacity(disabled ? 0.3 : 0.9)).disabled(disabled)
+    }
+
 }
 
 private struct AuxiliaryButtonFace: View {

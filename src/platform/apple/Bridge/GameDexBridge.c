@@ -3,6 +3,7 @@
 #include <mgba/core/core.h>
 #include <mgba/core/log.h>
 #include <mgba/core/timing.h>
+#include <mgba/core/serialize.h>
 #include <mgba/gba/core.h>
 #include <mgba-util/audio-buffer.h>
 #include <mgba-util/vfs.h>
@@ -67,3 +68,22 @@ size_t gd_audio(GDCore* g, int16_t* output, size_t capacity) { return mAudioBuff
 unsigned gd_audio_rate(GDCore* g) { return g->core->audioSampleRate(g->core); }
 const GDPoll* gd_polls(GDCore* g, size_t* count) { *count = g->count; return g->polls; }
 int gd_poll_overflow(GDCore* g) { return g->overflow; }
+
+int gd_save_state(GDCore* g, const char* path) {
+ struct VFile* vf = VFileOpen(path, O_RDWR | O_CREAT | O_TRUNC);
+ if (!vf) return 0;
+ int success = mCoreSaveStateNamed(g->core, vf, SAVESTATE_ALL);
+ vf->close(vf); return success;
+}
+int gd_load_state(GDCore* g, const char* path) {
+ struct VFile* vf = VFileOpen(path, O_RDONLY);
+ if (!vf) return 0;
+ int success = mCoreLoadStateNamed(g->core, vf, SAVESTATE_ALL);
+ vf->close(vf);
+ if (success) {
+  g->count = 0; g->overflow = 0; g->sampled = 0;
+  // The portable state format has no PNG framebuffer; redraw one neutral frame.
+  gd_frame(g, 0);
+ }
+ return success;
+}

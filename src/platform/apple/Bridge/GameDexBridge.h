@@ -8,6 +8,8 @@ typedef struct { uint64_t cycle; uint16_t buttons; } GDPoll;
 GDCore* gd_create(const char* rom, const char* save);
 void gd_destroy(GDCore*);
 void gd_frame(GDCore*, uint32_t keys);
+int gd_save_state(GDCore*, const char* path);
+int gd_load_state(GDCore*, const char* path);
 const uint8_t* gd_pixels(GDCore*);
 const char* gd_title(GDCore*);
 uint64_t gd_cycle(GDCore*);
