@@ -122,6 +122,7 @@ final class GameModel: ObservableObject {
     @Published var expanded = false
     @Published var showingMenu = false
     @Published var showingLibrary = false
+    @Published var showingSessions = false
     @Published var showingPlayback = false
     @Published var importing = false
     @Published var seconds = 0.0
@@ -193,7 +194,7 @@ final class GameModel: ObservableObject {
     }
     func release(_ source: String) { sources.removeValue(forKey: source); pressed = sources.values.reduce(0, |); emulator.setKeys(pressed) }
     func clear() { sources.removeAll(); pressed = 0; emulator.setKeys(0) }
-    var isPaused: Bool { paused || showingMenu || showingLibrary || showingPlayback || importing || focusPaused }
+    var isPaused: Bool { paused || showingMenu || showingLibrary || showingSessions || showingPlayback || importing || focusPaused }
     func updatePauseState() { clear(); emulator.setPaused(isPaused) }
     func pause() { paused.toggle(); updatePauseState() }
     func openMenu() { showingMenu = true; updatePauseState() }

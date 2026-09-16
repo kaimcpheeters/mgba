@@ -43,7 +43,7 @@ struct GameDexApp {
         fullScreen.keyEquivalentModifierMask = [.command, .control]
         NSApp.mainMenu = menu
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
-            guard let self, self.window.isKeyWindow, !self.model.showingMenu, !self.model.showingLibrary, !self.model.showingPlayback, !self.model.importing,
+            guard let self, self.window.isKeyWindow, !self.model.showingMenu, !self.model.showingLibrary, !self.model.showingSessions, !self.model.showingPlayback, !self.model.importing,
                   !event.modifierFlags.contains(.command), !event.modifierFlags.contains(.control), !event.modifierFlags.contains(.option) else { return event }
             if event.type == .keyDown && event.keyCode == 53 && self.model.desktopFullScreen {
                 self.window.toggleFullScreen(nil); return nil
@@ -206,6 +206,9 @@ struct GameDexApp: App {
                     else { model.restore() }
                     if args.contains("--menu") {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { model.openMenu() }
+                    }
+                    if args.contains("--recordings") {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { model.showingSessions = true }
                     }
                     if args.contains("--settings") {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { model.showingLibrary = true }

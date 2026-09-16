@@ -60,7 +60,7 @@ struct GameDexView: View {
         .onAppear { focused = true }
         #if os(iOS)
         .onKeyPress(phases: [.down, .repeat, .up]) { key in
-            guard !model.showingMenu, !model.showingLibrary, !model.showingPlayback, !model.importing else { return .ignored }
+            guard !model.showingMenu, !model.showingLibrary, !model.showingSessions, !model.showingPlayback, !model.importing else { return .ignored }
             guard let mask = GameModel.keyboard(key.characters, shift: key.modifiers.contains(.shift)) else { return .ignored }
             let source = "keyboard-\(key.key.character)"
             if key.phase == .up { model.release(source) } else { model.hold(source, mask) }
@@ -74,6 +74,11 @@ struct GameDexView: View {
         }
         .onChange(of: model.importing) { _, _ in model.updatePauseState() }
         .sheet(isPresented: $model.showingLibrary) { LibraryView(model: model) }
+        .sheet(isPresented: $model.showingSessions) { RecordingSessionsView(model: model) }
+        .onChange(of: model.showingSessions) { _, open in
+            model.updatePauseState()
+            if open { model.refresh() } else { focused = true }
+        }
         .onChange(of: model.showingLibrary) { _, open in model.libraryChanged(open); if !open { focused = true } }
         .alert("GameDex", isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("OK") { model.message = nil }
@@ -105,7 +110,7 @@ struct Handheld: View {
                     .accessibilityLabel(model.recording ? "Stop recording" : "Start recording")
                 Spacer(minLength: 0)
                 #if os(iOS)
-                icon("gearshape", label: "Settings & Sessions") { model.showingLibrary = true }
+                icon("film.stack", label: "Recording Sessions") { model.showingSessions = true }
                 #else
                 icon(model.expanded ? "sidebar.right" : "sidebar.left", label: model.expanded ? "Collapse details" : "Expand details") { model.expand() }
                 #endif
@@ -216,11 +221,7 @@ struct Handheld: View {
 
 private struct PauseMenu: View {
     @ObservedObject var model: GameModel
-    #if os(macOS)
     private let settingsTitle = "Settings"
-    #else
-    private let settingsTitle = "Settings & Sessions"
-    #endif
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
@@ -328,7 +329,7 @@ struct Details: View {
     var content: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack {
-                PageHeading(title: "Sessions")
+                PageHeading(title: "Recording Sessions")
                 Spacer()
                 Button { model.showingLibrary = true } label: {
                     Image(systemName: "gearshape").font(.system(size: 15, weight: .medium)).frame(width: 36, height: 44)
@@ -371,7 +372,7 @@ private struct SessionsView: View {
             }
             Text("\(visibleTakes.count) sessions").font(.caption).foregroundStyle(.secondary)
             if visibleTakes.isEmpty {
-                Text(pendingOnly ? "No pending sessions." : "No sessions yet. Use REC to start recording.")
+                Text(pendingOnly ? "No pending sessions." : "No recording sessions yet. Use REC to start recording.")
                     .font(.subheadline).foregroundStyle(.secondary).padding(.vertical, 12)
             }
             ForEach(visibleTakes) { take in
@@ -497,14 +498,26 @@ private struct DesktopDisplayControls: View {
 }
 #endif
 
+private struct RecordingSessionsView: View {
+    @ObservedObject var model: GameModel
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    PageHeading(title: "Recording Sessions")
+                    SessionsView(model: model)
+                }.padding(22)
+            }.background(shell.opacity(0.35))
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+    }
+}
+
 private struct LibraryView: View {
     @ObservedObject var model: GameModel
     @Environment(\.dismiss) var dismiss
-    #if os(macOS)
     private let title = "Settings"
-    #else
-    private let title = "Settings & Sessions"
-    #endif
     var body: some View {
         NavigationStack {
             List {
@@ -537,8 +550,6 @@ private struct LibraryView: View {
                     Button("Show sessions folder") { NSWorkspace.shared.open(model.library) }
                     Text(model.library.path).font(.caption).textSelection(.enabled)
                 }
-                #else
-                Section { SessionsView(model: model) } header: { Text("Sessions") }
                 #endif
             }
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }

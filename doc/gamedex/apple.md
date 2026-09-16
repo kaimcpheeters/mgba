@@ -23,7 +23,7 @@ physical-device build. Release signing, notarization, App Store assets and
 submission are not performed by these scripts; the scripts build unsigned local
 apps. ROMs, save files, and recordings are never included in the app bundle.
 
-Open a `.gba` or `.zip` using Open Game in Settings (the iPhone toolbar gear or the Mac expanded-panel gear). The app copies it into its managed
+Open a `.gba` or `.zip` using Open Game in Settings (Menu on iPhone or the Mac expanded-panel gear). The app copies it into its managed
 Games directory and stores its battery save beside it. A matching `.sav` next to
 an imported ROM is copied when no managed save already exists. Existing saves
 are not overwritten. GameDex remembers the three most recently opened ROMs in
@@ -39,10 +39,10 @@ entry. Existing `lastROM` preferences migrate automatically.
   using the display’s reported physical dimensions and logical point size at launch
   and when changing displays. Monitor reports can be approximate; unavailable
   dimensions fall back to 308 points wide. No permissions are needed.
-- **Expanded:** the handheld keeps its size and position; a 320-point Sessions panel
+- **Expanded:** the handheld keeps its size and position; a 320-point Recording Sessions panel
   opens on its right. The Mac window grows from its existing left edge, shifting only if needed to fit the display.
 - **iPhone:** the game image spans the entire available portrait width, preserving
-  GBA's 3:2 aspect ratio. The controls fit below it within the safe area. The iOS toolbar has recording and settings controls; expansion
+  GBA's 3:2 aspect ratio. The controls fit below it within the safe area. The iOS toolbar has recording and Recording Sessions controls; expansion
   is Mac-only. L/R sit flush with the outer edges above the main controls, and
   keyboard hints appear only on desktop.
 - **Mac screen size:** choose 1× or 2× in Settings or the View menu (⌘1 / ⌘2).
@@ -54,13 +54,14 @@ entry. Existing `lastROM` preferences migrate automatically.
   and recording time. Settings remains accessible; returning from Settings keeps
   the menu paused until Resume (or Escape on desktop).
 - **REC light:** start/stop a recording without resetting the game. Starts off.
-- **Sessions:** desktop sessions live in the expanded panel, separate from Settings.
-  iPhone combines them in **Settings & Sessions**. Both use the same session cards:
+- **Recording Sessions:** desktop recordings live in the expanded panel, separate
+  from Settings. On iPhone, the toolbar’s film icon opens Recording Sessions;
+  Menu provides access to Settings. Both use the same session cards:
   local date/time, game, precise duration, encoded frame count, and metadata status.
   All/Pending filters, refresh, playback, and confirmed deletion are shared; desktop
   adds Finder access and iPhone adds sharing. Deletion is disabled during recording.
   Pending means saved locally awaiting upload; no uploader is configured.
-- **Gear:** Settings on desktop; Settings & Sessions on iPhone. Playback combines MP4 and WAV.
+- **Settings:** the desktop gear or the iPhone pause menu. Playback combines MP4 and WAV.
   Opening settings or playback pauses the game; the desktop session list can stay open while recording. Mac offers Finder access; iOS exposes Documents in
   Files and can share the video track. Raw GameDex audio and logs remain separate.
 
