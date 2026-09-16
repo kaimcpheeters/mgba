@@ -244,7 +244,10 @@ private struct PauseMenu: View {
                     action("Fast Forward", icon: "forward.fill", detail: model.fastForward ? "2× · On" : "Off", disabled: !model.loaded, active: model.fastForward) { model.toggleFastForward() }
                     action(settingsTitle, icon: "gearshape", detail: "Preferences") { model.showingLibrary = true }
                 }
-                if let notice = model.menuNotice { Text(notice).font(.caption).foregroundStyle(.white.opacity(0.7)) }
+                Text(model.menuNotice ?? " ")
+                    .font(.caption).foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(2).frame(height: 34, alignment: .top)
+                    .accessibilityHidden(model.menuNotice == nil)
 
             }.padding(24).padding(.bottom, 16)
                 .background(Color(red: 0.13, green: 0.10, blue: 0.19).opacity(0.96))
