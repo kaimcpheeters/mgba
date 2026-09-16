@@ -432,6 +432,24 @@ private struct LibraryView: View {
                     Button("Open a GBA game…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { model.importing = true } }
                     Text("Recording starts off. Closing the app finishes the active take.").font(.caption).foregroundStyle(.secondary)
                 }
+                if !model.recentROMPaths.isEmpty {
+                    Section("Recent ROMs") {
+                        ForEach(model.recentROMPaths, id: \.self) { path in
+                            let url = URL(fileURLWithPath: path)
+                            let available = FileManager.default.fileExists(atPath: path)
+                            Button {
+                                dismiss()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { model.load(url) }
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(url.deletingPathExtension().lastPathComponent).font(.subheadline.weight(.medium))
+                                    Text(available ? path : "File unavailable · \(path)")
+                                        .font(.caption2).foregroundStyle(.secondary).lineLimit(2).truncationMode(.middle)
+                                }
+                            }.disabled(!available)
+                        }
+                    }
+                }
                 #if os(macOS)
                 Section("Display") { DesktopDisplayControls(model: model) }
                 Section("Storage") {

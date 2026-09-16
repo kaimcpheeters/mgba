@@ -26,7 +26,11 @@ apps. ROMs, save files, and recordings are never included in the app bundle.
 Open a `.gba` or `.zip` using Open Game in Settings (the iPhone toolbar gear or the Mac expanded-panel gear). The app copies it into its managed
 Games directory and stores its battery save beside it. A matching `.sav` next to
 an imported ROM is copied when no managed save already exists. Existing saves
-are not overwritten. GameDex remembers the last imported game.
+are not overwritten. GameDex remembers the three most recently opened ROMs in
+`Games/recent-roms.json`, newest first, with duplicates removed. Paths refer to
+managed copies. Settings offers quick reopening; missing files are disabled.
+Only successful opens update history, and launch restores the newest available
+entry. Existing `lastROM` preferences migrate automatically.
 
 ## Layout and controls
 

@@ -127,6 +127,8 @@ final class GameModel: ObservableObject {
     @Published var pressed: UInt32 = 0
     @Published var message: String?
     @Published var takes: [Take] = []
+    @Published var recentROMPaths: [String] = []
+    private var recentROMs: RecentROMs
     @Published var desktopBaseGameWidth: CGFloat = 308
     @Published var desktopScale = 1
     @Published var desktopFullScreen = false
@@ -147,6 +149,8 @@ final class GameModel: ObservableObject {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("GameDex", isDirectory: true)
         library = libraryOverride ?? documents.appendingPathComponent("GameDex Recordings", isDirectory: true)
         games = (libraryOverride?.deletingLastPathComponent() ?? support).appendingPathComponent("Games", isDirectory: true)
+        recentROMs = RecentROMs(games: games, legacyPath: libraryOverride == nil ? UserDefaults.standard.string(forKey: "lastROM") : nil)
+        recentROMPaths = recentROMs.paths
         do { try FileManager.default.createDirectory(at: library, withIntermediateDirectories: true); try FileManager.default.createDirectory(at: games, withIntermediateDirectories: true) }
         catch { message = error.localizedDescription }
         emulator = Emulator(library: library)
@@ -171,10 +175,16 @@ final class GameModel: ObservableObject {
             let name = try emulator.load(target, save: save)
             title = name.contains("POKEMON EMER") ? "Pokémon Emerald" : name
             loaded = true; paused = false; sources.removeAll(); pressed = 0; message = nil
-            UserDefaults.standard.set(target.path, forKey: "lastROM")
+            try recentROMs.remember(target)
+            recentROMPaths = recentROMs.paths
         } catch { message = error.localizedDescription }
     }
-    func restore() { if let path = UserDefaults.standard.string(forKey: "lastROM"), FileManager.default.fileExists(atPath: path) { load(URL(fileURLWithPath: path)) } }
+    func restore() {
+        if let path = recentROMPaths.first(where: { FileManager.default.fileExists(atPath: $0) }) {
+            load(URL(fileURLWithPath: path))
+        }
+    }
+
     func hold(_ source: String, _ mask: UInt32) {
         guard loaded, !paused, !showingLibrary, !showingPlayback, !importing else { return }
         sources[source] = mask; pressed = sources.values.reduce(0, |); emulator.setKeys(pressed)
