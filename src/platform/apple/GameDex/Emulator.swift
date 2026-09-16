@@ -115,6 +115,16 @@ final class GameModel: ObservableObject {
     @Published var pressed: UInt32 = 0
     @Published var message: String?
     @Published var takes: [Take] = []
+    @Published var desktopBaseGameWidth: CGFloat = 308
+    @Published var desktopScale = 1
+    @Published var desktopFullScreen = false
+    @Published var displaySizingNote = "Based on display-reported dimensions"
+    var desktopGameWidth: CGFloat { desktopBaseGameWidth * CGFloat(desktopScale) }
+    var desktopShellWidth: CGFloat { max(354, desktopGameWidth + 44) }
+    var desktopShellHeight: CGFloat { max(680, max(354, desktopBaseGameWidth + 44) * 19.5 / 9) + (desktopGameWidth - desktopBaseGameWidth) / 1.5 }
+    var changeDesktopLayout: (() -> Void)?
+    var toggleDesktopFullScreen: (() -> Void)?
+    func setDesktopScale(_ scale: Int) { desktopScale = scale == 2 ? 2 : 1; changeDesktopLayout?() }
     let library: URL, games: URL
     var resize: ((Bool) -> Void)?
     private var sources: [String: UInt32] = [:]

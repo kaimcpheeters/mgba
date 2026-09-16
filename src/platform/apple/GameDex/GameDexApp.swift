@@ -16,29 +16,38 @@ struct GameDexApp {
 }
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var window: NSWindow!, model: GameModel!, monitor: Any?
+    var transitioning = false
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = CommandLine.arguments
         let testIndex = args.firstIndex(of: "--self-test")
         let testDirectory = testIndex.map { URL(fileURLWithPath: args[$0 + 1], isDirectory: true) }
         model = GameModel(libraryOverride: testDirectory?.appendingPathComponent("recordings"))
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 780), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+        updateDisplaySizing(NSScreen.main)
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: model.desktopShellWidth, height: model.desktopShellHeight), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "GameDex Pocket"; window.delegate = self
+        window.collectionBehavior.insert(.fullScreenPrimary)
         window.contentView = NSHostingView(rootView: GameDexView(model: model))
         window.center(); window.isReleasedWhenClosed = false
-        model.resize = { [weak self] expanded in
-            guard let window = self?.window else { return }
-            var frame = window.frame
-            frame.size.width = expanded ? 680 : 360
-            // Keep the left edge, vertical position and handheld dimensions fixed.
-            window.setFrame(frame, display: true, animate: false)
-        }
+        model.resize = { [weak self] _ in self?.applyWindowGeometry() }
+        model.changeDesktopLayout = { [weak self] in self?.applyWindowGeometry() }
+        model.toggleDesktopFullScreen = { [weak self] in self?.window.toggleFullScreen(nil) }
+        applyWindowGeometry()
         let menu = NSMenu(), appMenu = NSMenu(), item = NSMenuItem()
         item.submenu = appMenu; menu.addItem(item)
         appMenu.addItem(withTitle: "Quit GameDex", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let viewItem = NSMenuItem(), viewMenu = NSMenu(title: "View")
+        viewItem.submenu = viewMenu; menu.addItem(viewItem)
+        viewMenu.addItem(withTitle: "Original Screen Size (1×)", action: #selector(originalSize), keyEquivalent: "1")
+        viewMenu.addItem(withTitle: "Double Screen Size (2×)", action: #selector(doubleSize), keyEquivalent: "2")
+        let fullScreen = viewMenu.addItem(withTitle: "Toggle Full Screen", action: #selector(toggleFullScreen), keyEquivalent: "f")
+        fullScreen.keyEquivalentModifierMask = [.command, .control]
         NSApp.mainMenu = menu
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self, self.window.isKeyWindow, !self.model.showingLibrary, !self.model.importing,
                   !event.modifierFlags.contains(.command), !event.modifierFlags.contains(.control), !event.modifierFlags.contains(.option) else { return event }
+            if event.type == .keyDown && event.keyCode == 53 && self.model.desktopFullScreen {
+                self.window.toggleFullScreen(nil); return nil
+            }
             let source = "keyboard-\(event.keyCode)"
             // Physical key codes pair press/release even if modifiers change while held.
             if event.type == .keyUp { self.model.release(source); return event }
@@ -50,6 +59,41 @@ struct GameDexApp {
         window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
         if let testDirectory { runTest(testDirectory) }
     }
+    func updateDisplaySizing(_ screen: NSScreen?) {
+        guard let screen, let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else { return }
+        let millimeters = CGDisplayScreenSize(CGDirectDisplayID(number.uint32Value))
+        let width = 61.2 * screen.frame.width / millimeters.width
+        if millimeters.width > 100 && millimeters.width < 3000 && width.isFinite && width > 50 && width < 1500 {
+            model.desktopBaseGameWidth = width
+            model.displaySizingNote = "Based on \(screen.localizedName)’s reported dimensions"
+        } else {
+            model.desktopBaseGameWidth = 308
+            model.displaySizingNote = "Display dimensions unavailable; using an approximate size"
+        }
+    }
+    func applyWindowGeometry() {
+        guard let window, !transitioning, !model.desktopFullScreen else { return }
+        let visible = (window.screen ?? NSScreen.main)!.visibleFrame
+        let desired = window.frameRect(forContentRect: NSRect(x: 0, y: 0,
+            width: model.desktopShellWidth + (model.expanded ? 320 : 0), height: model.desktopShellHeight))
+        var frame = window.frame
+        let top = frame.maxY
+        frame.size = NSSize(width: min(desired.width, visible.width), height: min(desired.height, visible.height))
+        frame.origin.y = min(max(top - frame.height, visible.minY), visible.maxY - frame.height)
+        frame.origin.x = min(max(frame.minX, visible.minX), visible.maxX - frame.width)
+        window.setFrame(frame, display: true)
+    }
+    @objc func originalSize() { model.setDesktopScale(1) }
+    @objc func doubleSize() { model.setDesktopScale(2) }
+    @objc func toggleFullScreen() { window.toggleFullScreen(nil) }
+    func windowDidChangeScreen(_ notification: Notification) { updateDisplaySizing(window.screen); applyWindowGeometry() }
+    func windowDidChangeBackingProperties(_ notification: Notification) { updateDisplaySizing(window.screen); applyWindowGeometry() }
+    func windowWillEnterFullScreen(_ notification: Notification) { transitioning = true; model.desktopFullScreen = true }
+    func windowDidEnterFullScreen(_ notification: Notification) { transitioning = false }
+    func windowWillExitFullScreen(_ notification: Notification) { transitioning = true }
+    func windowDidExitFullScreen(_ notification: Notification) { transitioning = false; model.desktopFullScreen = false; applyWindowGeometry() }
+    func windowDidFailToEnterFullScreen(_ window: NSWindow) { transitioning = false; model.desktopFullScreen = false; applyWindowGeometry() }
+    func windowDidFailToExitFullScreen(_ window: NSWindow) { transitioning = false; model.desktopFullScreen = true }
     func windowDidResignKey(_ notification: Notification) { model.focus(false) }
     func windowDidBecomeKey(_ notification: Notification) { model.focus(true) }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
@@ -59,7 +103,7 @@ struct GameDexApp {
         assert(GameModel.keyboard("w") == 64 && GameModel.keyboard("a") == 32 && GameModel.keyboard("s") == 128 && GameModel.keyboard("d") == 16)
         assert(GameModel.keyboard("\r") == 1 && GameModel.keyboard(" ") == 2 && GameModel.keyboard("x") == 8 && GameModel.keyboard("z") == 4 && GameModel.keyboard("\t") == nil)
         func later(_ seconds: Double, _ body: @escaping @MainActor @Sendable () -> Void) { DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: body) }
-        later(1) { self.model.emulator.toggleRecording() }
+        later(1) { self.window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); self.model.focus(true); self.model.emulator.toggleRecording() }
         let keys: [(String, UInt16, NSEvent.ModifierFlags)] = [("w", 13, []), ("a", 0, []), ("s", 1, []), ("d", 2, []), ("\r", 36, []), (" ", 49, []), ("x", 7, []), ("z", 6, []), ("q", 12, []), ("e", 14, [])]
         for (index, key) in keys.enumerated() {
             later(1.2 + Double(index) * 0.2) { self.postKey(key, down: true) }
@@ -73,8 +117,18 @@ struct GameDexApp {
             assert(self.window.frame.minX == before.minX && self.window.frame.height == before.height)
         }
         later(5) { self.snapshot(directory.appendingPathComponent("expanded.png")); self.model.expand(); self.model.pause(); self.model.emulator.toggleRecording() }
-        later(7) { self.model.emulator.close(); print("PASS: Apple shell input mapping, anchored expansion, screenshots, recording and shutdown"); NSApp.terminate(nil) }
+        later(7) {
+            self.model.emulator.close()
+            let width = self.model.desktopGameWidth
+            self.model.setDesktopScale(2)
+            assert(abs(self.model.desktopGameWidth - 2 * width) < 0.001)
+            self.snapshot(directory.appendingPathComponent("double.png"))
+            self.model.setDesktopScale(1)
+            print("PASS: Apple shell input mapping, anchored expansion, 2× sizing, screenshots, recording and shutdown")
+            NSApp.terminate(nil)
+        }
     }
+
     func postKey(_ key: (String, UInt16, NSEvent.ModifierFlags), down: Bool) {
         if let event = NSEvent.keyEvent(with: down ? .keyDown : .keyUp, location: .zero, modifierFlags: key.2,
             timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
@@ -84,9 +138,13 @@ struct GameDexApp {
     }
     func snapshot(_ url: URL) {
         let view = HStack(spacing: 0) {
-            Handheld(model: model).frame(width: 390, height: 845).scaleEffect(360.0 / 390, anchor: .topLeading).frame(width: 360, height: 780, alignment: .topLeading)
-            if model.expanded { Details(model: model).content.frame(width: 320, height: 780, alignment: .top).clipped() }
-        }.frame(width: model.expanded ? 680 : 360, height: 780).preferredColorScheme(.light)
+            Handheld(model: model).frame(width: model.desktopShellWidth, height: model.desktopShellHeight)
+            if model.expanded { Details(model: model).content.frame(width: 320, height: model.desktopShellHeight, alignment: .top).clipped() }
+        }.frame(width: model.desktopShellWidth + (model.expanded ? 320 : 0), height: model.desktopShellHeight).preferredColorScheme(.light)
+        if url.lastPathComponent == "collapsed.png" {
+            let dimensions = ["width": Int(model.desktopShellWidth * 2), "height": Int(model.desktopShellHeight * 2)]
+            try? JSONSerialization.data(withJSONObject: dimensions).write(to: url.deletingLastPathComponent().appendingPathComponent("layout.json"))
+        }
         let renderer = ImageRenderer(content: view); renderer.scale = 2
         if let image = renderer.cgImage {
             let bitmap = NSBitmapImageRep(cgImage: image)

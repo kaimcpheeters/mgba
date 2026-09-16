@@ -14,29 +14,26 @@ struct GameDexView: View {
         GeometryReader { geometry in
             #if os(iOS)
             let width = geometry.size.width < 500 ? geometry.size.width : min(390, geometry.size.height * 9 / 19.5)
-            let height = geometry.size.height
-            let expanded = false
+            Handheld(model: model)
+                .frame(width: 390, height: geometry.size.height * 390 / width)
+                .scaleEffect(width / 390, anchor: .topLeading)
+                .frame(width: width, height: geometry.size.height, alignment: .topLeading)
             #else
-            let width = min(390.0, min(geometry.size.width, geometry.size.height * 9 / 19.5))
-            let height = width * 19.5 / 9
-            let expanded = model.expanded
-            #endif
-            ScrollView(.horizontal, showsIndicators: expanded) {
+            let contentWidth = model.desktopShellWidth + (model.expanded ? 320 : 0)
+            ScrollView([.horizontal, .vertical]) {
                 HStack(spacing: 0) {
-                    Handheld(model: model)
-                        .frame(width: 390, height: height * 390 / width)
-                        .scaleEffect(width / 390, anchor: .topLeading)
-                        .frame(width: width, height: height, alignment: .topLeading)
-                    if expanded {
-                        Details(model: model).frame(width: 320, height: height)
-                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                    Handheld(model: model).frame(width: model.desktopShellWidth, height: model.desktopShellHeight)
+                    if model.expanded {
+                        Details(model: model).frame(width: 320, height: model.desktopShellHeight)
                     }
                 }
+                .frame(width: max(contentWidth, geometry.size.width), height: max(model.desktopShellHeight, geometry.size.height),
+                       alignment: model.desktopFullScreen ? .center : .topLeading)
             }
-            .frame(maxHeight: .infinity, alignment: .topLeading)
-            .scrollDisabled(!expanded)
+            .scrollDisabled(contentWidth <= geometry.size.width + 0.5 && model.desktopShellHeight <= geometry.size.height + 0.5)
+            #endif
         }
-        .background(shell)
+        .background(model.desktopFullScreen ? Color(white: 0.035) : shell)
         .preferredColorScheme(.light)
         .focusable().focused($focused)
         .onAppear { focused = true }
@@ -86,9 +83,9 @@ struct Handheld: View {
                 Spacer(minLength: 0)
                 icon(model.paused ? "play.fill" : "pause.fill", label: model.paused ? "Resume" : "Pause") { model.pause() }
                     .disabled(!model.loaded)
-                icon("folder", label: "Open game") { model.importing = true }
+                #if os(iOS)
                 icon("gearshape", label: "Settings and recordings") { model.showingLibrary = true }
-                #if os(macOS)
+                #else
                 icon(model.expanded ? "sidebar.right" : "sidebar.left", label: model.expanded ? "Collapse details" : "Expand details") { model.expand() }
                 #endif
             }.padding(.horizontal, 18).padding(.top, mobile ? 8 : 18)
@@ -114,7 +111,7 @@ struct Handheld: View {
                         Label("PAUSED", systemImage: "pause.fill").font(.system(size: 12, weight: .bold)).tracking(2)
                             .padding(14).background(.ultraThinMaterial, in: Capsule())
                     }
-                }.frame(width: mobile ? 390 : 330, height: mobile ? 260 : 220).clipped()
+                }.frame(width: mobile ? 390 : model.desktopGameWidth, height: mobile ? 260 : model.desktopGameWidth / 1.5).clipped()
                 if !mobile { HStack {
                     Text("GAME BOY ADVANCE").font(.system(size: 8, weight: .semibold, design: .rounded)).tracking(2.5)
                     Spacer()
@@ -230,6 +227,11 @@ struct Details: View {
     var content: some View {
             VStack(alignment: .leading, spacing: 26) {
                 HStack { Text("Studio").font(.system(size: 27, weight: .bold, design: .rounded)); Spacer(); Button { model.expand() } label: { Image(systemName: "sidebar.right") }.buttonStyle(.plain).accessibilityLabel("Collapse details") }
+                Button { model.importing = true } label: { Label("Open game…", systemImage: "folder") }.buttonStyle(.bordered)
+                #if os(macOS)
+                DesktopDisplayControls(model: model)
+                Divider()
+                #endif
                 VStack(alignment: .leading, spacing: 12) {
                     caption("CURRENT SESSION")
                     Text(model.title).font(.headline)
@@ -268,6 +270,32 @@ struct Details: View {
     private func mapping(_ name: String, _ key: String) -> some View { HStack { Text(name).font(.system(size: 13)); Spacer(); Text(key).font(.system(size: 11, weight: .medium, design: .monospaced)).padding(.horizontal, 8).padding(.vertical, 5).background(.black.opacity(0.045), in: RoundedRectangle(cornerRadius: 5)) } }
 }
 
+#if os(macOS)
+private struct DesktopDisplayControls: View {
+    @ObservedObject var model: GameModel
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("GAME SCREEN").font(.system(size: 10, weight: .bold)).tracking(1.7).foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                ForEach([1, 2], id: \.self) { scale in
+                    Button { model.setDesktopScale(scale) } label: {
+                        Text(scale == 1 ? "1× · Original" : "2× · Double")
+                            .frame(maxWidth: .infinity).padding(.vertical, 7)
+                            .background(model.desktopScale == scale ? violet.opacity(0.18) : Color.black.opacity(0.04), in: RoundedRectangle(cornerRadius: 7))
+                    }.buttonStyle(.plain).accessibilityAddTraits(model.desktopScale == scale ? .isSelected : [])
+                }
+            }
+            Text(model.desktopScale == 1 ? "61.2 × 40.8 mm · ≈2.9″" : "122.4 × 81.6 mm · ≈5.8″").font(.caption)
+            Text(model.displaySizingNote).font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Button { model.toggleDesktopFullScreen?() } label: {
+                Label(model.desktopFullScreen ? "Exit full screen" : "Full screen", systemImage: model.desktopFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+            }.buttonStyle(.bordered)
+            Text("Full screen keeps this size and dims the space around it. Esc to exit.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+#endif
+
 private struct LibraryView: View {
     @ObservedObject var model: GameModel
     @Environment(\.dismiss) var dismiss
@@ -280,6 +308,9 @@ private struct LibraryView: View {
                     Button("Open a GBA game…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { model.importing = true } }
                     Text("Recording starts off. Closing the app finishes the active take.").font(.caption).foregroundStyle(.secondary)
                 }
+                #if os(macOS)
+                Section("Display") { DesktopDisplayControls(model: model) }
+                #endif
                 Section("Recordings") {
                     if model.takes.isEmpty { Text("No recordings yet. Tap the REC light to start.").foregroundStyle(.secondary) }
                     ForEach(model.takes) { take in
