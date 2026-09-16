@@ -155,9 +155,17 @@ struct Handheld: View {
                     hold("A", hint: "RETURN", bit: 0, width: 59, height: 59).offset(x: 35, y: -20)
                 }.frame(width: 150, height: 142)
             }.padding(.top, 24)
-            HStack(alignment: .top, spacing: 20) {
+            HStack(alignment: .top, spacing: 8) {
                 smallButton("SELECT", hint: "Z", bit: 2)
                 smallButton("START", hint: "X", bit: 3)
+            }
+            .frame(maxWidth: .infinity)
+            .overlay(alignment: .topLeading) {
+                Button { model.showingLibrary = true } label: { Text("MENU") }
+                    .buttonStyle(MenuDotStyle())
+                    .accessibilityLabel(mobile ? "Menu, Settings & Sessions" : "Menu, Settings")
+                    .help(mobile ? "Settings & Sessions" : "Settings")
+                    .padding(.leading, 8)
             }.padding(.top, mobile ? 10 : 20)
             Spacer().frame(height: 24)
             HStack {
@@ -194,15 +202,37 @@ struct Handheld: View {
             .accessibilityAction { model.hold("accessibility", 1 << bit); DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { model.release("accessibility") } }
     }
     private func smallButton(_ title: String, hint: String, bit: Int) -> some View {
-        VStack(spacing: 8) {
-            Capsule().fill(LinearGradient(colors: [Color(white: 0.45), Color(white: 0.28)], startPoint: .top, endPoint: .bottom))
-                .frame(width: 49, height: 15).shadow(color: .black.opacity(0.22), radius: 1, y: model.pressed & (1 << bit) != 0 ? 0 : 2)
-            Text(title).font(.system(size: 8, weight: .bold)).tracking(1.5)
-            Text(hint).font(.system(size: 8, design: .monospaced)).foregroundStyle(ink.opacity(0.4))
-        }.frame(width: 69, height: 55).contentShape(Rectangle())
+        AuxiliaryButtonFace(title: title, hint: hint, pressed: model.pressed & (1 << bit) != 0)
+            .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { _ in model.hold("touch-\(bit)", 1 << bit) }.onEnded { _ in model.release("touch-\(bit)") })
             .accessibilityLabel("\(title), \(hint)").accessibilityAddTraits(.isButton)
             .accessibilityAction { model.hold("accessibility", 1 << bit); DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { model.release("accessibility") } }
+    }
+}
+
+private struct AuxiliaryButtonFace: View {
+    let title: String
+    var hint: String = ""
+    var pressed = false
+    var body: some View {
+        VStack(spacing: 7) {
+            Circle().fill(Color(white: 0.18)).frame(width: 24, height: 24)
+                .overlay {
+                    Circle().fill(LinearGradient(colors: [Color(white: pressed ? 0.65 : 0.94), Color(white: 0.63)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 1))
+                        .padding(2.5)
+                }
+                .shadow(color: .black.opacity(pressed ? 0.1 : 0.25), radius: 1, y: pressed ? 0 : 2)
+                .offset(y: pressed ? 1 : 0)
+            Text(title).font(.system(size: 8, weight: .bold)).tracking(0.8)
+            Text(hint.isEmpty ? " " : hint).font(.system(size: 8, design: .monospaced)).foregroundStyle(ink.opacity(0.4))
+        }.frame(width: 56, height: 65).foregroundStyle(ink)
+    }
+}
+
+private struct MenuDotStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        AuxiliaryButtonFace(title: "MENU", pressed: configuration.isPressed).contentShape(Rectangle())
     }
 }
 
