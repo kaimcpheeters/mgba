@@ -185,7 +185,8 @@ final class GameModel: ObservableObject {
         case "d": return 1 << 4
         case "\r", "\n": return 1
         case " ": return 2
-        case "\t", "\u{19}": return shift ? 4 : 8
+        case "z": return 4
+        case "x": return 8
         case "q": return 1 << 9
         case "e": return 1 << 8
         default: return nil

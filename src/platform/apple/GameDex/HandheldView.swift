@@ -139,8 +139,8 @@ struct Handheld: View {
                 }.frame(width: 150, height: 142)
             }.padding(.top, 24)
             HStack(alignment: .top, spacing: 20) {
-                smallButton("SELECT", hint: "⇧ TAB", bit: 2)
-                smallButton("START", hint: "TAB", bit: 3)
+                smallButton("SELECT", hint: "Z", bit: 2)
+                smallButton("START", hint: "X", bit: 3)
             }.padding(.top, mobile ? 10 : 20)
             Spacer().frame(height: 24)
             HStack {
@@ -243,8 +243,8 @@ struct Details: View {
                     mapping("D-pad", "W A S D")
                     mapping("A", "Return ↵")
                     mapping("B", "Space")
-                    mapping("Start", "Tab ⇥")
-                    mapping("Select", "Shift Tab ⇧⇥")
+                    mapping("Start", "X")
+                    mapping("Select", "Z")
                     mapping("L / R", "Q / E")
                 }
                 Divider()
@@ -301,7 +301,7 @@ private struct LibraryView: View {
                 #if os(macOS)
                 Section("Storage") { Button("Show recordings folder") { NSWorkspace.shared.open(model.library) }; Text(model.library.path).font(.caption).textSelection(.enabled) }
                 #endif
-                Section("Controls") { Text("W A S D · D-pad\nReturn · A     Space · B\nTab · Start     Shift-Tab · Select\nQ · L     E · R").font(.system(.body, design: .monospaced)) }
+                Section("Controls") { Text("W A S D · D-pad\nReturn · A     Space · B\nX · Start     Z · Select\nQ · L     E · R").font(.system(.body, design: .monospaced)) }
             }
             .navigationTitle("Settings & recordings")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }

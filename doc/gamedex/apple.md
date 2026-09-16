@@ -48,8 +48,8 @@ are not overwritten. GameDex remembers the last imported game.
 | D-pad | W / A / S / D |
 | A | Return |
 | B | Space |
-| Start | Tab |
-| Select | Shift-Tab |
+| Start | X |
+| Select | Z |
 | L / R | Q / E |
 
 Keyboard input is local to the focused app. Buttons remain held until released;

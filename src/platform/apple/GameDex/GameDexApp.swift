@@ -40,7 +40,7 @@ struct GameDexApp {
             guard let self, self.window.isKeyWindow, !self.model.showingLibrary, !self.model.importing,
                   !event.modifierFlags.contains(.command), !event.modifierFlags.contains(.control), !event.modifierFlags.contains(.option) else { return event }
             let source = "keyboard-\(event.keyCode)"
-            // Key codes keep release paired correctly when Shift changes before Tab is released.
+            // Physical key codes pair press/release even if modifiers change while held.
             if event.type == .keyUp { self.model.release(source); return event }
             guard let mask = GameModel.keyboard(event.charactersIgnoringModifiers ?? "", shift: event.modifierFlags.contains(.shift)) else { return event }
             if !event.isARepeat { self.model.hold(source, mask) }; return nil
@@ -57,10 +57,10 @@ struct GameDexApp {
     func application(_ sender: NSApplication, openFiles filenames: [String]) { if let file = filenames.first { model.load(URL(fileURLWithPath: file)) }; sender.reply(toOpenOrPrint: .success) }
     func runTest(_ directory: URL) {
         assert(GameModel.keyboard("w") == 64 && GameModel.keyboard("a") == 32 && GameModel.keyboard("s") == 128 && GameModel.keyboard("d") == 16)
-        assert(GameModel.keyboard("\r") == 1 && GameModel.keyboard(" ") == 2 && GameModel.keyboard("\t") == 8 && GameModel.keyboard("\t", shift: true) == 4)
+        assert(GameModel.keyboard("\r") == 1 && GameModel.keyboard(" ") == 2 && GameModel.keyboard("x") == 8 && GameModel.keyboard("z") == 4 && GameModel.keyboard("\t") == nil)
         func later(_ seconds: Double, _ body: @escaping @MainActor @Sendable () -> Void) { DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: body) }
         later(1) { self.model.emulator.toggleRecording() }
-        let keys: [(String, UInt16, NSEvent.ModifierFlags)] = [("w", 13, []), ("a", 0, []), ("s", 1, []), ("d", 2, []), ("\r", 36, []), (" ", 49, []), ("\t", 48, []), ("\t", 48, [.shift]), ("q", 12, []), ("e", 14, [])]
+        let keys: [(String, UInt16, NSEvent.ModifierFlags)] = [("w", 13, []), ("a", 0, []), ("s", 1, []), ("d", 2, []), ("\r", 36, []), (" ", 49, []), ("x", 7, []), ("z", 6, []), ("q", 12, []), ("e", 14, [])]
         for (index, key) in keys.enumerated() {
             later(1.2 + Double(index) * 0.2) { self.postKey(key, down: true) }
             later(1.3 + Double(index) * 0.2) { self.postKey(key, down: false) }
