@@ -124,6 +124,8 @@ last CFR interval may receive less than one frame of silence padding.
 ```sh
 python3 tools/gamedex/test.py build-gamedex
 python3 tools/gamedex/shell-test.py build-gamedex
+# Also test the actual display/GPU (opens a window):
+python3 tools/gamedex/shell-test.py build-gamedex --native
 ```
 
 Tests generate an original 1 KiB GBA ROM (`test-rom.s`), with a solid framebuffer,

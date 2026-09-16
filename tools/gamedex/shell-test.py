@@ -10,6 +10,11 @@ import tempfile
 from validate import validate, jsonl
 
 build = pathlib.Path(sys.argv[1]).resolve()
+# Exercise the real GPU/display backend when requested; dummy cannot expose
+# invalid GPU texture mappings during window resize or UI rendering.
+environment = dict(os.environ)
+if '--native' not in sys.argv[2:]:
+    environment.update(SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy')
 root = pathlib.Path(__file__).resolve().parent
 with tempfile.TemporaryDirectory(prefix='gamedex-shell-test-') as temp:
     temp = pathlib.Path(temp)
@@ -20,14 +25,19 @@ with tempfile.TemporaryDirectory(prefix='gamedex-shell-test-') as temp:
     run = subprocess.run([
         str(build / 'sdl/mgba'), '-C', 'gamedexShell=1', '-C', f'gamedexLibrary={library}',
         '-C', f'gamedexShellTest={screenshots}', '-C', 'skipBios=1', str(rom)],
-        env=dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy'),
+        env=environment,
         capture_output=True, timeout=30)
     assert run.returncode == 0, run.stderr.decode()
     sessions = sorted(p for p in library.iterdir() if p.name.startswith('mgba-'))
     assert len(sessions) == 3, [p.name for p in sessions]
     previous_end = 0
     for session in sessions:
-        m = validate(session)
+        try:
+            m = validate(session)
+        except AssertionError:
+            print(run.stderr.decode(), file=sys.stderr)
+            print((session / 'metadata.json').read_text(), file=sys.stderr)
+            raise
         clock = m['mgba_capture']
         assert clock['origin_cycle'] > previous_end, 'Starting recording reset the running game'
         previous_end = clock['origin_cycle'] + clock['emulated_cycles']

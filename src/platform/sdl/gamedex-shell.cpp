@@ -226,6 +226,10 @@ struct GameDexShell {
 	}
 	bool event(const SDL_Event& e) {
 		if (e.type == SDL_QUIT) return false;
+		// Native UI tests control focus with injected events (windowID zero).
+		// Desktop focus changes must not pause their scripted recording schedule.
+		if (!testOutput.empty() && e.type == SDL_WINDOWEVENT && e.window.windowID &&
+		    (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST || e.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)) return true;
 		if (e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
 			focused = false; resumeAfterFocus = !mCoreThreadIsPaused(thread);
 			mCoreThreadPause(thread); clearKeys(); return false;
@@ -276,6 +280,8 @@ struct GameDexShell {
 		++ticks;
 		if (testOutput.empty()) return;
 		SDL_Event e{};
+		if (ticks == 120) SDL_SetWindowSize(view->window, 1008, 720);
+		if (ticks == 130) SDL_SetWindowSize(view->window, W, H);
 		if (ticks == 45 || ticks == 150 || ticks == 175 || ticks == 260 || ticks == 345) {
 			e.type = SDL_MOUSEBUTTONDOWN; e.button.button = SDL_BUTTON_LEFT; e.button.x = REC.x + 30; e.button.y = REC.y + 25; SDL_PushEvent(&e);
 		}

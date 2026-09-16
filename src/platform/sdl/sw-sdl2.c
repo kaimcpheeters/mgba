@@ -55,9 +55,11 @@ bool mSDLSWInit(struct mSDLRenderer* renderer) {
 #endif
 
 	if (!renderer->sdlTex) return false;
-	int stride;
-	if (!SDL_OK(SDL_LockTexture(renderer->sdlTex, 0, (void**) &renderer->outputBuffer, &stride))) return false;
-	renderer->core->setVideoBuffer(renderer->core, renderer->outputBuffer, stride / BYTES_PER_PIXEL);
+	/* The core needs stable memory. GPU texture mappings can change or become
+	 * invalid when the window resizes or another texture is rendered. */
+	renderer->outputBuffer = calloc(width * height, BYTES_PER_PIXEL);
+	if (!renderer->outputBuffer) return false;
+	renderer->core->setVideoBuffer(renderer->core, renderer->outputBuffer, width);
 
 	return true;
 }
@@ -88,7 +90,9 @@ void mSDLSWRunloop(struct mSDLRenderer* renderer, void* user) {
 		if (shell) GameDexShellTick(shell);
 #endif
 		if (mCoreSyncWaitFrameStart(&context->impl->sync)) {
-			SDL_UnlockTexture(renderer->sdlTex);
+			unsigned width, height;
+			renderer->core->baseVideoSize(renderer->core, &width, &height);
+			SDL_UpdateTexture(renderer->sdlTex, NULL, renderer->outputBuffer, width * BYTES_PER_PIXEL);
 #ifdef BUILD_GAMEDEX_SHELL
 			if (shell) GameDexShellDraw(shell, renderer->sdlTex);
 			else
@@ -97,9 +101,6 @@ void mSDLSWRunloop(struct mSDLRenderer* renderer, void* user) {
 				SDL_RenderCopy(renderer->sdlRenderer, renderer->sdlTex, 0, 0);
 				SDL_RenderPresent(renderer->sdlRenderer);
 			}
-			int stride;
-			SDL_LockTexture(renderer->sdlTex, 0, (void**) &renderer->outputBuffer, &stride);
-			renderer->core->setVideoBuffer(renderer->core, renderer->outputBuffer, stride / BYTES_PER_PIXEL);
 		}
 		mCoreSyncWaitFrameEnd(&context->impl->sync);
 #ifdef BUILD_GAMEDEX_SHELL
@@ -113,8 +114,7 @@ void mSDLSWRunloop(struct mSDLRenderer* renderer, void* user) {
 }
 
 void mSDLSWDeinit(struct mSDLRenderer* renderer) {
-	/* outputBuffer belongs to the locked SDL texture, at every scale. */
-	SDL_UnlockTexture(renderer->sdlTex);
+	free(renderer->outputBuffer);
 	SDL_DestroyTexture(renderer->sdlTex);
 	SDL_DestroyRenderer(renderer->sdlRenderer);
 	renderer->outputBuffer = NULL;
