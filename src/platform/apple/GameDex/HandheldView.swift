@@ -55,7 +55,11 @@ struct GameDexView: View {
             #endif
         }
         .background(model.desktopFullScreen ? Color(white: 0.035) : shell)
+        #if os(iOS)
+        .preferredColorScheme(model.showingMenu && !model.showingLibrary && !model.showingSessions && !model.importing ? .dark : .light)
+        #else
         .preferredColorScheme(.light)
+        #endif
         .focusable().focused($focused)
         .onAppear { focused = true }
         #if os(iOS)
@@ -243,6 +247,9 @@ private struct PauseMenu: View {
                     Text(model.title).font(.system(size: 22, weight: .medium, design: .rounded))
                         .multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.85)).padding(.horizontal, 24)
                 }.frame(maxWidth: .infinity).frame(height: top)
+                #if os(iOS)
+                .background(Color.black.ignoresSafeArea(edges: .top))
+                #endif
                 ScrollView {
                     VStack(spacing: 16) {
                         HStack {
