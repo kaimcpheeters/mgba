@@ -23,7 +23,7 @@ physical-device build. Release signing, notarization, App Store assets and
 submission are not performed by these scripts; the scripts build unsigned local
 apps. ROMs, save files, and recordings are never included in the app bundle.
 
-Open a `.gba` or `.zip` using Open Game in Settings (iPhone) or the expanded Studio panel (Mac). The app copies it into its managed
+Open a `.gba` or `.zip` using Open Game in Settings (the iPhone toolbar gear or the Mac expanded-panel gear). The app copies it into its managed
 Games directory and stores its battery save beside it. A matching `.sav` next to
 an imported ROM is copied when no managed save already exists. Existing saves
 are not overwritten. GameDex remembers the last imported game.
@@ -35,13 +35,13 @@ are not overwritten. GameDex remembers the last imported game.
   using the display’s reported physical dimensions and logical point size at launch
   and when changing displays. Monitor reports can be approximate; unavailable
   dimensions fall back to 308 points wide. No permissions are needed.
-- **Expanded:** the handheld keeps its size and position; a 320-point Studio panel
+- **Expanded:** the handheld keeps its size and position; a 320-point session panel
   opens on its right. The Mac window grows from its existing left edge, shifting only if needed to fit the display.
 - **iPhone:** the game image spans the entire available portrait width, preserving
   GBA's 3:2 aspect ratio. The controls fit below it within the safe area. The iOS toolbar has recording, pause and settings controls; expansion
   is Mac-only. L/R sit flush with the outer edges above the main controls, and
   the WASD hint remains visible.
-- **Mac screen size:** choose 1× or 2× in Studio or the View menu (⌘1 / ⌘2).
+- **Mac screen size:** choose 1× or 2× in Settings or the View menu (⌘1 / ⌘2).
   2× doubles the image dimensions to 122.4×81.6 mm, about 5.8 inches diagonal.
   Native full screen (⌃⌘F; Esc to exit) preserves the chosen size and adds dark
   margins. Small displays scroll instead of silently shrinking the image.

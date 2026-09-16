@@ -245,56 +245,27 @@ struct Details: View {
         ScrollView { content }.background(Color(red: 0.97, green: 0.97, blue: 0.98)).foregroundStyle(ink)
     }
     var content: some View {
-            VStack(alignment: .leading, spacing: 26) {
-                HStack(spacing: 16) {
-                    Text("Studio").font(.system(size: 27, weight: .bold, design: .rounded))
-                    Spacer()
-                    Button { model.showingLibrary = true } label: { Image(systemName: "gearshape") }
-                        .buttonStyle(.plain).accessibilityLabel("Settings and recordings").help("Settings and recordings")
-                    Button { model.expand() } label: { Image(systemName: "sidebar.right") }
-                        .buttonStyle(.plain).accessibilityLabel("Collapse details")
+        VStack(alignment: .leading, spacing: 26) {
+            HStack {
+                Spacer()
+                Button { model.showingLibrary = true } label: {
+                    Image(systemName: "gearshape").font(.system(size: 15, weight: .medium)).frame(width: 36, height: 44)
+                }.buttonStyle(.plain).accessibilityLabel("Settings and recordings").help("Settings and recordings")
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                Text("CURRENT SESSION").font(.system(size: 10, weight: .bold)).tracking(1.7).foregroundStyle(.secondary)
+                Text(model.title).font(.headline)
+                HStack {
+                    Circle().fill(model.recording ? .red : .gray).frame(width: 7, height: 7)
+                    Text(model.recording ? "Recording • \(time(model.seconds))" : "Recording is off").font(.subheadline)
                 }
-                Button { model.importing = true } label: { Label("Open game…", systemImage: "folder") }.buttonStyle(.bordered)
-                #if os(macOS)
-                DesktopDisplayControls(model: model)
-                Divider()
-                #endif
-                VStack(alignment: .leading, spacing: 12) {
-                    caption("CURRENT SESSION")
-                    Text(model.title).font(.headline)
-                    HStack { Circle().fill(model.recording ? .red : .gray).frame(width: 7, height: 7); Text(model.recording ? "Recording • \(time(model.seconds))" : "Recording is off").font(.subheadline) }
-                    Button(model.recording ? "Stop & save recording" : "Start recording") { model.emulator.toggleRecording() }.buttonStyle(.borderedProminent).tint(violet).disabled(!model.loaded)
-                    Text("Video, game audio, and every sampled input stay together.").font(.caption).foregroundStyle(.secondary)
-                }
-                Divider()
-                VStack(alignment: .leading, spacing: 14) {
-                    caption("KEYBOARD")
-                    mapping("D-pad", "W A S D")
-                    mapping("A", "Return ↵")
-                    mapping("B", "Space")
-                    mapping("Start", "X")
-                    mapping("Select", "Z")
-                    mapping("L / R", "Q / E")
-                }
-                Divider()
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack { caption("RECORDINGS"); Spacer(); Text("\(model.takes.count)").font(.caption).foregroundStyle(.secondary) }
-                    ForEach(model.takes.prefix(3)) { take in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(take.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
-                            Text("\(time(take.seconds)) · \(take.complete ? "Saved" : "Incomplete")").font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                    if model.takes.isEmpty { Text("Your first take belongs here.").font(.subheadline).foregroundStyle(.secondary) }
-                    Button { model.showingLibrary = true } label: { Label("Settings & recordings", systemImage: "folder") }.buttonStyle(.bordered)
-                }
-                Spacer(minLength: 0)
-                Text("GAMEDEX / GBA").font(.system(size: 9, weight: .medium, design: .monospaced)).tracking(2).foregroundStyle(.tertiary)
-            }.padding(26).frame(maxWidth: .infinity, alignment: .topLeading)
-                .background(Color(red: 0.97, green: 0.97, blue: 0.98)).foregroundStyle(ink)
+                Button(model.recording ? "Stop & save recording" : "Start recording") {
+                    model.emulator.toggleRecording()
+                }.buttonStyle(.borderedProminent).tint(violet).disabled(!model.loaded)
+            }
+        }.padding(26).frame(maxWidth: .infinity, alignment: .topLeading)
+            .background(Color(red: 0.97, green: 0.97, blue: 0.98)).foregroundStyle(ink)
     }
-    private func caption(_ text: String) -> some View { Text(text).font(.system(size: 10, weight: .bold)).tracking(1.7).foregroundStyle(.secondary) }
-    private func mapping(_ name: String, _ key: String) -> some View { HStack { Text(name).font(.system(size: 13)); Spacer(); Text(key).font(.system(size: 11, weight: .medium, design: .monospaced)).padding(.horizontal, 8).padding(.vertical, 5).background(.black.opacity(0.045), in: RoundedRectangle(cornerRadius: 5)) } }
 }
 
 #if os(macOS)
