@@ -246,7 +246,14 @@ struct Details: View {
     }
     var content: some View {
             VStack(alignment: .leading, spacing: 26) {
-                HStack { Text("Studio").font(.system(size: 27, weight: .bold, design: .rounded)); Spacer(); Button { model.expand() } label: { Image(systemName: "sidebar.right") }.buttonStyle(.plain).accessibilityLabel("Collapse details") }
+                HStack(spacing: 16) {
+                    Text("Studio").font(.system(size: 27, weight: .bold, design: .rounded))
+                    Spacer()
+                    Button { model.showingLibrary = true } label: { Image(systemName: "gearshape") }
+                        .buttonStyle(.plain).accessibilityLabel("Settings and recordings").help("Settings and recordings")
+                    Button { model.expand() } label: { Image(systemName: "sidebar.right") }
+                        .buttonStyle(.plain).accessibilityLabel("Collapse details")
+                }
                 Button { model.importing = true } label: { Label("Open game…", systemImage: "folder") }.buttonStyle(.bordered)
                 #if os(macOS)
                 DesktopDisplayControls(model: model)
@@ -351,8 +358,8 @@ private struct LibraryView: View {
                 }
                 #if os(macOS)
                 Section("Storage") { Button("Show recordings folder") { NSWorkspace.shared.open(model.library) }; Text(model.library.path).font(.caption).textSelection(.enabled) }
-                #endif
                 Section("Controls") { Text("W A S D · D-pad\nReturn · A     Space · B\nX · Start     Z · Select\nQ · L     E · R").font(.system(.body, design: .monospaced)) }
+                #endif
             }
             .navigationTitle("Settings & recordings")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
