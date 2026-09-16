@@ -1,0 +1,56 @@
+name: GameDexPocket
+options:
+  bundleIdPrefix: dev.gamedex
+  deploymentTarget:
+    macOS: '14.0'
+    iOS: '17.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    ARCHS: arm64
+    SWIFT_OBJC_BRIDGING_HEADER: Bridge/GameDexBridge.h
+    GENERATE_INFOPLIST_FILE: YES
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: '0.2.0'
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    OTHER_LDFLAGS: ['$(inherited)', '-lmgba', '-lgamedex-bridge', '-lz']
+    INFOPLIST_KEY_CFBundleDisplayName: GameDex Pocket
+    INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.games
+    INFOPLIST_KEY_NSHumanReadableCopyright: 'mGBA contributors / GameDex. MPL-2.0.'
+targets:
+  GameDexMac:
+    type: application
+    platform: macOS
+    sources: [GameDex, Bridge/GameDexBridge.h, {path: ../../../LICENSE, buildPhase: resources}, {path: ../../../res/mgba.icns, buildPhase: resources}]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.gamedex.pocket.mac
+        INFOPLIST_KEY_CFBundleIconFile: mgba
+        PRODUCT_NAME: GameDex Pocket
+        LIBRARY_SEARCH_PATHS: ['$(inherited)', '$(SRCROOT)/../../../build-apple-macos']
+  GameDexIOS:
+    type: application
+    platform: iOS
+    sources: [GameDex, Bridge/GameDexBridge.h, {path: ../../../LICENSE, buildPhase: resources}]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.gamedex.pocket
+        PRODUCT_NAME: GameDex Pocket
+        TARGETED_DEVICE_FAMILY: '1,2'
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UIFileSharingEnabled: YES
+        INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: 'UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight'
+        'LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]': ['$(inherited)', '$(SRCROOT)/../../../build-apple-simulator']
+        'LIBRARY_SEARCH_PATHS[sdk=iphoneos*]': ['$(inherited)', '$(SRCROOT)/../../../build-apple-ios']
+schemes:
+  GameDexMac:
+    build:
+      targets:
+        GameDexMac: all
+  GameDexIOS:
+    build:
+      targets:
+        GameDexIOS: all
