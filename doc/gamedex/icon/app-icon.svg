@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs><clipPath id="disc"><circle cx="512" cy="512" r="508"/></clipPath></defs>
+  <g id="recolored-symbol" clip-path="url(#disc)">
+    <image xlink:href="recolored-base.png" width="1024" height="1024"/>
+  </g>
+  <g id="editable-version-layer">
+    <image xlink:href="version-overlay.svg" width="1024" height="1024"/>
+  </g>
+</svg>

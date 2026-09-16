@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <g id="version-2" aria-label="2">
+    <circle cx="854" cy="854" r="90" fill="#262830" stroke="#8af4e8" stroke-width="6"/>
+    <!-- Outlined numeral: no font dependency or generated lettering. -->
+    <path fill="#f4fffd" d="M808 833 C808 800 827 783 855 783 C884 783 902 800 902 825 C902 846 889 859 870 875 L846 895 H904 V920 H805 V898 L850 858 C868 842 876 835 876 825 C876 814 869 807 855 807 C841 807 833 817 833 833 Z"/>
+  </g>
+</svg>
