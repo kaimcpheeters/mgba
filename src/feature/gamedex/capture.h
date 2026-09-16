@@ -5,7 +5,7 @@
 CXX_GUARD_START
 struct mCore;
 struct mGameDexCapture;
-/* Call on the emulation thread immediately after reset; directory must not exist.
+/* Call on the emulation thread or while interrupted; directory must not exist.
  * The caller owns the AV stream while recording. Stop before destroying core. */
 struct mGameDexCapture* mGameDexStart(struct mCore*, const char* directory);
 bool mGameDexHealthy(const struct mGameDexCapture*);

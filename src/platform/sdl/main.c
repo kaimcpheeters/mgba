@@ -26,6 +26,9 @@
 #include <mgba-util/vfs.h>
 
 #include <SDL.h>
+#ifdef BUILD_GAMEDEX_SHELL
+#include "gamedex-shell.h"
+#endif
 #ifdef BUILD_GAMEDEX
 #include "feature/gamedex/capture.h"
 #endif
@@ -282,6 +285,13 @@ int mSDLRun(struct mSDLRenderer* renderer, struct mArguments* args) {
 #ifdef BUILD_GAMEDEX
 	struct GameDexContext capture = {.thread = &thread};
 	const char* captureDirectory = mCoreConfigGetValue(&renderer->core->config, "gamedexCapture");
+	bool shellEnabled = false;
+	mCoreConfigGetBoolValue(&renderer->core->config, "gamedexShell", &shellEnabled);
+	if (shellEnabled && captureDirectory) {
+		fprintf(stderr, "Use the shell recording switch instead of gamedexCapture.\n");
+		return 1;
+	}
+	if (shellEnabled) renderer->core->opts.rewindEnable = false;
 	if (captureDirectory) {
 		if (args->savestate
 #ifdef ENABLE_DEBUGGERS
@@ -316,7 +326,9 @@ int mSDLRun(struct mSDLRenderer* renderer, struct mArguments* args) {
 		renderer->core->currentVideoSize(renderer->core, &renderer->width, &renderer->height);
 		unsigned width = renderer->width * renderer->ratio;
 		unsigned height = renderer->height * renderer->ratio;
-		if (width != (unsigned) renderer->viewportWidth && height != (unsigned) renderer->viewportHeight) {
+		bool shellWindow = false;
+		mCoreConfigGetBoolValue(&renderer->core->config, "gamedexShell", &shellWindow);
+		if (!shellWindow && width != (unsigned) renderer->viewportWidth && height != (unsigned) renderer->viewportHeight) {
 			SDL_SetWindowSize(renderer->window, width, height);
 			renderer->player.windowUpdated = 1;
 		}
@@ -354,6 +366,12 @@ int mSDLRun(struct mSDLRenderer* renderer, struct mArguments* args) {
 	} else {
 		printf("Could not run game. Are you sure the file exists and is a compatible game?\n");
 	}
+#ifdef BUILD_GAMEDEX_SHELL
+	if (renderer->gameDexShell) {
+		GameDexShellDestroy(renderer->gameDexShell);
+		renderer->gameDexShell = NULL;
+	}
+#endif
 #ifdef BUILD_GAMEDEX
 	if (capture.capture) {
 		renderer->core->removeCoreCallbacks(renderer->core, &capture.callbacks);

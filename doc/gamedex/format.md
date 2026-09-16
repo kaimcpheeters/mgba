@@ -63,5 +63,7 @@ Metadata uses `session_id` (UUID), `game_name` (ROM header title), `start_time` 
   this implementation is C/C++ and does not impersonate the original recorder.
 
 `mgba_capture` is an extension containing completion/error status, clock frequency,
-native frame period, native frame count, final cycle, and input interpretation.
+native frame period, native frame count, absolute `origin_cycle`, final relative
+cycle, and input interpretation. Capture begins on a completed frame; already-held
+buttons are represented by initial key-press events at timestamp zero.
 All files are local. There is no backend registration or upload implementation.

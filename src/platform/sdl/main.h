@@ -30,6 +30,7 @@ CXX_GUARD_START
 struct mCore;
 struct mSDLRenderer {
 	struct mCore* core;
+	void* gameDexShell;
 	mColor* outputBuffer;
 
 	struct mSDLAudio audio;

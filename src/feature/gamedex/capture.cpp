@@ -10,6 +10,8 @@ extern "C" {
 #include <libswresample/swresample.h>
 }
 #include <array>
+#include <atomic>
+#include <mgba/internal/gba/gba.h>
 #include <deque>
 #include <fstream>
 #include <iomanip>
@@ -103,11 +105,13 @@ struct mGameDexCapture {
 	SwsContext* scale = nullptr;
 	SwrContext* resample = nullptr;
 	unsigned width = 0, height = 0, inputRate = 0, observed = 0, held = 0, used = 0;
-	uint64_t origin = 0, lastCycle = 0, nativeFrames = 0, frames = 0, keyEvents = 0, samples = 0;
+	uint64_t origin = 0, lastCycle = 0, frames = 0, keyEvents = 0, samples = 0;
+	std::atomic<uint64_t> nativeFrames{0};
+	std::atomic<bool> healthy{true};
 	uint64_t imageCycle = 0;
 	int64_t imageFrame = -1;
 	uint64_t frequency;
-	bool attached = false, header = false;
+	bool attached = false, header = false, waitingForFrame = true;
 	struct Transition { uint64_t cycle; unsigned mask; };
 	std::deque<Transition> pending;
 	std::vector<uint8_t> rgb;
@@ -126,6 +130,7 @@ struct mGameDexCapture {
 	void fail(const char* message) {
 		if (!error.empty()) return;
 		error = message;
+		healthy.store(false);
 		fprintf(stderr, "GameDex capture failed: %s\n", message);
 	}
 	template<typename F> void guard(F f) {
@@ -164,7 +169,7 @@ struct mGameDexCapture {
 #endif
 		  << "\"mgba_capture\":{\"version\":1,\"complete\":" << (complete ? "true" : "false")
 		  << ",\"clock_hz\":" << frequency << ",\"native_frame_cycles\":" << core->frameCycles(core)
-		  << ",\"native_frames\":" << nativeFrames << ",\"emulated_cycles\":" << lastCycle
+		  << ",\"origin_cycle\":" << origin << ",\"native_frames\":" << nativeFrames << ",\"emulated_cycles\":" << lastCycle
 		  << ",\"input_semantics\":\"sampled GBA buttons mapped to virtual keys\",\"button_keys\":[";
 		for (unsigned i = 0; i < 10; ++i) f << (i ? "," : "") << quote(KEYS[i]);
 		f << "],\"error\":" << (error.empty() ? "null" : quote(error)) << "}}\n";
@@ -203,6 +208,7 @@ struct mGameDexCapture {
 		inputRate = value;
 	}
 	void sound(int16_t left, int16_t right) {
+		if (waitingForFrame) return;
 		int16_t inBuffer[] = {left, right}, outBuffer[64];
 		const uint8_t* in[] = {reinterpret_cast<uint8_t*>(inBuffer)};
 		uint8_t* out[] = {reinterpret_cast<uint8_t*>(outBuffer)};
@@ -238,9 +244,7 @@ struct mGameDexCapture {
 			++frames;
 		}
 	}
-	void video(const mColor* pixels, size_t stride) {
-		uint64_t cycle = clock();
-		emitUntil(cycle); // Sample-and-hold the last completed frame; no future pixels.
+	void copyPixels(const mColor* pixels, size_t stride) {
 		for (unsigned y = 0; y < height; ++y) for (unsigned x = 0; x < width; ++x) {
 			mColor c = pixels[y * stride + x];
 			size_t i = (y * width + x) * 3;
@@ -252,9 +256,31 @@ struct mGameDexCapture {
 			rgb[i] = (c & 31) * 255 / 31; rgb[i + 1] = ((c >> 5) & 31) * 255 / 31; rgb[i + 2] = ((c >> 10) & 31) * 255 / 31;
 #endif
 		}
+	}
+	void video(const mColor* pixels, size_t stride) {
+		if (waitingForFrame) {
+			// Arm at the next completed frame: never export a half-rendered start image.
+			origin = mTimingGlobalTime(core->timing);
+			lastCycle = 0;
+			copyPixels(pixels, stride);
+			imageFrame = nativeFrames++; imageCycle = 0;
+			// Seed held state from the last KEYINPUT result, without inventing an input poll.
+			held = observed = (static_cast<GBA*>(core->board)->memory.io[0x130 / 2] ^ 0x3FF) & 0x3FF;
+			used = held;
+			for (unsigned i = 0; i < 10; ++i) if (held & (1U << i)) {
+				events << "{\"timestamp_ms\":0,\"type\":\"key_press\",\"data\":{\"key\":" << quote(KEYS[i]) << "}}\n";
+				++keyEvents;
+			}
+			waitingForFrame = false;
+			return;
+		}
+		uint64_t cycle = clock();
+		emitUntil(cycle); // Sample-and-hold the last completed frame; no future pixels.
+		copyPixels(pixels, stride);
 		imageFrame = nativeFrames++; imageCycle = cycle;
 	}
 	void input(uint16_t mask) {
+		if (waitingForFrame) return;
 		uint64_t cycle = clock();
 		polls << "{\"cycle\":" << cycle << ",\"native_frame\":" << nativeFrames << ",\"buttons\":" << mask << "}\n";
 		if (mask == observed) return;
@@ -307,7 +333,7 @@ struct mGameDexCapture {
 		check(av_frame_get_buffer(frame, 32), "Allocate video frame");
 		scale = sws_getContext(width, height, AV_PIX_FMT_RGB24, width, height, encoder->pix_fmt, SWS_POINT, nullptr, nullptr, nullptr);
 		if (!scale) throw std::runtime_error("Cannot allocate color converter");
-		rgb.resize(width * height * 3, 0); // Explicit black lead-in until the first completed frame.
+		rgb.resize(width * height * 3, 0);
 		av.d.postVideoFrame = [](mAVStream* a, const mColor* p, size_t s) { auto* c = reinterpret_cast<CaptureAV*>(a)->owner; c->guard([&] { c->video(p, s); }); };
 		av.d.postAudioFrame = [](mAVStream* a, int16_t l, int16_t r) { auto* c = reinterpret_cast<CaptureAV*>(a)->owner; c->guard([&] { c->sound(l, r); }); };
 		av.d.audioRateChanged = [](mAVStream* a, unsigned r) { auto* c = reinterpret_cast<CaptureAV*>(a)->owner; c->guard([&] { c->rate(r); }); };
@@ -322,7 +348,10 @@ struct mGameDexCapture {
 	}
 	bool finish() {
 		core->setAVStream(core, nullptr); core->removeCoreCallbacks(core, &callbacks); attached = false;
-		guard([&] { emitUntil(clock()); flushAudio(); });
+		guard([&] {
+			if (waitingForFrame) throw std::runtime_error("Recording stopped before the first completed frame");
+			emitUntil(clock()); flushAudio();
+		});
 		try {
 			if (header) {
 				check(avcodec_send_frame(encoder, nullptr), "Flush encoder"); receive();
@@ -349,8 +378,8 @@ extern "C" mGameDexCapture* mGameDexStart(mCore* core, const char* directory) {
 		return c.release();
 	} catch (const std::exception& e) { fprintf(stderr, "Cannot start GameDex capture: %s\n", e.what()); return nullptr; }
 }
-extern "C" bool mGameDexHealthy(const mGameDexCapture* c) { return c && c->error.empty(); }
-extern "C" uint64_t mGameDexFrames(const mGameDexCapture* c) { return c ? c->nativeFrames : 0; }
+extern "C" bool mGameDexHealthy(const mGameDexCapture* c) { return c && c->healthy.load(); }
+extern "C" uint64_t mGameDexFrames(const mGameDexCapture* c) { return c ? c->nativeFrames.load() : 0; }
 extern "C" void mGameDexAbort(mGameDexCapture* c, const char* reason) { if (c) c->fail(reason); }
 extern "C" bool mGameDexStop(mGameDexCapture* c) {
 	if (!c) return false;

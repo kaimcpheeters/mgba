@@ -9,16 +9,33 @@ screen recorder, global keyboard hook, microphone, account, or upload is involve
 
 ## Build and record
 
-On macOS, install `cmake`, `pkgconf`, `sdl2`, and `ffmpeg` with Homebrew. FFmpeg must
+On macOS, install `cmake`, `pkgconf`, `sdl2`, `sdl2_ttf`, `json-c`, and `ffmpeg` with Homebrew. FFmpeg must
 include the `libx264` encoder. On Linux install the corresponding development
 packages, a C++17 compiler, and FFmpeg 5 or newer.
 
 ```sh
 ./tools/gamedex/build.sh
-./tools/gamedex/record.sh /path/to/game.gba
+./tools/gamedex/shell.sh /path/to/game.gba-or-zip
 ```
 
-The launcher creates a session under `~/Documents/GameDex Recordings`. Optionally
+The shell opens with recording **off**, the game on the left and current keyboard
+mappings on the right. Keys light up as you play.
+
+- Click the TV-style **REC OFF / RECORDING** lamp, or press **F10**, to start or
+  stop a take. Stopping finalizes its files; the game continues without a reset.
+- Click **Settings / View recordings**, or press **F11**, to browse saved takes.
+  The game pauses while browsing. **Video** opens the picture track in your media
+  player; **Files** includes the separate audio track and input logs. **Open folder**
+  opens the library in your file manager. Scroll for older takes.
+- **Pause / Resume** controls the game. Losing window focus pauses it and clears
+  held keys, so switching applications does not leave a button stuck down.
+- Recordings live under `~/Documents/GameDex Recordings`. To choose another
+  library, launch the binary with `-C gamedexShell=1 -C gamedexLibrary=/path`.
+  `GAMEDEX_FONT` can specify a TrueType UI font if no system font is found.
+
+For the plain emulator window that records immediately at launch, use
+`./tools/gamedex/record.sh /path/to/game.gba-or-zip`.
+That launcher creates a session under `~/Documents/GameDex Recordings`. Optionally
 pass a **new** session directory as the second argument; its parent must exist.
 The recorder refuses to overwrite any existing directory. Close the emulator
 window to finalize the MP4 and mark the session ready. Force-killing the process
@@ -65,11 +82,14 @@ native pixels before display scaling. It never asks the emulator to render again
 
 GameDex's `video.fps` is an unsigned integer. GBA's native rate is
 16,777,216 / 280,896 ≈ 59.7275 Hz, so this exporter samples the **last completed**
-frame at 60 Hz. Occasional repeated images are intentional. The initial image is
-black until the first frame completes. The frame sidecar identifies it as
-`native_frame: -1`; there is no claim that it was rendered by the game.
+frame at 60 Hz. Occasional repeated images are intentional. A recording begins at
+the next completed game frame, even when toggled partway through gameplay. This
+frame establishes timestamp zero; no half-rendered or artificial lead-in image
+is inserted. Buttons already held at that boundary receive initial key-press
+events at time zero, using the game's last sampled KEYINPUT state.
 
-Both JSON time and video PTS start at capture's emulation cycle zero. Action rows
+Both JSON time and video PTS start at capture's emulation cycle zero. Metadata's
+`mgba_capture.origin_cycle` preserves its absolute emulation origin. Action rows
 contain the sampled input state at that exact PTS, never a future input state.
 Full input polls retain changes within a video frame. Native frames are numbered
 by completion order; a poll's native frame is the next frame to complete. Audio
@@ -80,10 +100,10 @@ last CFR interval may receive less than one frame of silence padding.
 
 - GBA and the SDL frontend are supported. Qt UI capture controls and GB/GBC
   recording are not implemented.
-- Sessions start immediately after reset. Rewind is disabled. A reset or successful
-  save-state load during capture marks the session failed and terminates the SDL
-  run rather than silently stitching incompatible timelines. Start a new session
-  for another timeline. Starting from a state/debugger is rejected.
+- The shell can start a session during gameplay. Rewind is disabled. A reset or
+  successful save-state load during capture marks that session failed. The shell
+  reports the error and allows a new take; the immediate-record CLI terminates
+  its run. CLI capture starts after reset and rejects a starting state/debugger.
 - Mouse coordinates/buttons are neutral placeholders. `inputs.keys` represents
   **virtual game controls**, not evidence of physical keyboard activity. Controller
   inputs become the same virtual controls; no physical-controller identity is saved.
@@ -94,7 +114,7 @@ last CFR interval may receive less than one frame of silence padding.
   unverified; file compatibility does not establish those contracts.
 - Metadata stays `upload_status: failed` and `mgba_capture.complete: false` until
   all writes/encoder finalization succeed. An interrupted process cannot advertise
-  a complete session. Errors return a nonzero exit code. WAV sessions stop with an
+  a complete session. CLI capture errors return a nonzero exit code; shell errors appear in its status line. WAV sessions stop with an
   error before their 4 GiB container limit; split very long recordings.
 - The current build uses FFmpeg/libx264 under their own licenses in addition to
   mGBA's MPL-2.0. Keep upstream license notices when redistributing a build.
@@ -103,6 +123,7 @@ last CFR interval may receive less than one frame of silence padding.
 
 ```sh
 python3 tools/gamedex/test.py build-gamedex
+python3 tools/gamedex/shell-test.py build-gamedex
 ```
 
 Tests generate an original 1 KiB GBA ROM (`test-rom.s`), with a solid framebuffer,
@@ -111,3 +132,7 @@ The tests run the actual emulator and encoder, decode the media, validate JSON,
 compare paused/unpaused output, test opposing-direction filtering, CFR duplicates,
 audio-rate changes, reset/load handling, disk-write failure, overwrite protection,
 and the SDL startup/shutdown path at 3× window scale.
+
+The shell test injects SDL clicks and keys, checks recording toggles without reset,
+held-input initialization, focus pause, settings, and finalization on window close.
+It also renders screenshots of standby, recording, and the recordings browser.

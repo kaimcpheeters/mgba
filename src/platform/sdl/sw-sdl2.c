@@ -4,6 +4,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "main.h"
+#ifdef BUILD_GAMEDEX_SHELL
+#include "gamedex-shell.h"
+#endif
 
 #include <mgba/core/core.h>
 #include <mgba/core/thread.h>
@@ -62,21 +65,50 @@ bool mSDLSWInit(struct mSDLRenderer* renderer) {
 void mSDLSWRunloop(struct mSDLRenderer* renderer, void* user) {
 	struct mCoreThread* context = user;
 	SDL_Event event;
+#ifdef BUILD_GAMEDEX_SHELL
+	struct GameDexShell* shell = NULL;
+	bool useShell = false;
+	mCoreConfigGetBoolValue(&renderer->core->config, "gamedexShell", &useShell);
+	if (useShell) {
+		shell = GameDexShellCreate(renderer, context);
+		renderer->gameDexShell = shell;
+		if (!shell) { mCoreThreadEnd(context); return; }
+	}
+#endif
 
 	while (mCoreThreadIsActive(context)) {
 		while (SDL_PollEvent(&event)) {
+#ifdef BUILD_GAMEDEX_SHELL
+			if (shell && GameDexShellEvent(shell, &event)) continue;
+#endif
 			mSDLHandleEvent(context, &renderer->player, &event);
 		}
 
+#ifdef BUILD_GAMEDEX_SHELL
+		if (shell) GameDexShellTick(shell);
+#endif
 		if (mCoreSyncWaitFrameStart(&context->impl->sync)) {
 			SDL_UnlockTexture(renderer->sdlTex);
-			SDL_RenderCopy(renderer->sdlRenderer, renderer->sdlTex, 0, 0);
-			SDL_RenderPresent(renderer->sdlRenderer);
+#ifdef BUILD_GAMEDEX_SHELL
+			if (shell) GameDexShellDraw(shell, renderer->sdlTex);
+			else
+#endif
+			{
+				SDL_RenderCopy(renderer->sdlRenderer, renderer->sdlTex, 0, 0);
+				SDL_RenderPresent(renderer->sdlRenderer);
+			}
 			int stride;
 			SDL_LockTexture(renderer->sdlTex, 0, (void**) &renderer->outputBuffer, &stride);
 			renderer->core->setVideoBuffer(renderer->core, renderer->outputBuffer, stride / BYTES_PER_PIXEL);
 		}
 		mCoreSyncWaitFrameEnd(&context->impl->sync);
+#ifdef BUILD_GAMEDEX_SHELL
+		// Settings and recording controls must remain responsive while paused.
+		if (shell && mCoreThreadIsPaused(context)) {
+			GameDexShellDraw(shell, renderer->sdlTex);
+			SDL_Delay(16);
+		} else if (shell) SDL_Delay(1);
+#endif
 	}
 }
 
