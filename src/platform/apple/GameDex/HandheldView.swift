@@ -28,6 +28,32 @@ private struct AdvanceBezel: Shape {
     }
 }
 
+// Single-line angular lettering complements the heavier condensed GAME BOY face.
+private struct AdvanceWordmark: Shape {
+    func path(in rect: CGRect) -> Path {
+        let a: [[CGPoint]] = [[.init(x: 0, y: 10), .init(x: 4, y: 0), .init(x: 8, y: 10)],
+                              [.init(x: 2, y: 6), .init(x: 6, y: 6)]]
+        let glyphs: [[[CGPoint]]] = [a,
+            [[.init(x: 0, y: 10), .init(x: 0, y: 0), .init(x: 5, y: 0), .init(x: 8, y: 3), .init(x: 8, y: 7), .init(x: 5, y: 10), .init(x: 0, y: 10)]],
+            [[.init(x: 0, y: 0), .init(x: 4, y: 10), .init(x: 8, y: 0)]], a,
+            [[.init(x: 0, y: 10), .init(x: 0, y: 0), .init(x: 8, y: 10), .init(x: 8, y: 0)]],
+            [[.init(x: 8, y: 0), .init(x: 2, y: 0), .init(x: 0, y: 2), .init(x: 0, y: 8), .init(x: 2, y: 10), .init(x: 8, y: 10)]],
+            [[.init(x: 8, y: 0), .init(x: 0, y: 0), .init(x: 0, y: 10), .init(x: 8, y: 10)],
+             [.init(x: 0, y: 5), .init(x: 6, y: 5)]]]
+        var path = Path()
+        for (index, glyph) in glyphs.enumerated() {
+            for line in glyph {
+                for (vertex, point) in line.enumerated() {
+                    let p = CGPoint(x: rect.minX + (CGFloat(index) * 9 + point.x + 2 * (1 - point.y / 10)) / 64 * rect.width,
+                                    y: rect.minY + point.y / 10 * rect.height)
+                    if vertex == 0 { path.move(to: p) } else { path.addLine(to: p) }
+                }
+            }
+        }
+        return path
+    }
+}
+
 struct GameDexView: View {
     @ObservedObject var model: GameModel
     @FocusState private var focused: Bool
@@ -111,10 +137,7 @@ struct Handheld: View {
                 #endif
             }.padding(.horizontal, 18).padding(.top, mobile ? 8 : 18)
             VStack(spacing: 0) {
-                if !mobile { HStack {
-                    Spacer()
-                    Text("240 × 160").font(.system(size: 8, design: .monospaced)).tracking(1)
-                }.foregroundStyle(.white.opacity(0.38)).padding(.horizontal, 22).padding(.top, 12).padding(.bottom, 10) }
+                if !mobile { Color.clear.frame(height: 30) }
                 ZStack {
                     Color(red: 0.055, green: 0.065, blue: 0.055)
                     if let image = model.image {
@@ -134,9 +157,15 @@ struct Handheld: View {
                 }.frame(width: mobile ? 390 : model.desktopGameWidth, height: mobile ? 260 : model.desktopGameWidth / 1.5).clipped()
                 .padding(.horizontal, mobile ? 0 : 16)
                 if !mobile {
-                    Text("GAME BOY ADVANCE")
-                        .font(.system(size: 10, weight: .heavy, design: .rounded)).italic().tracking(-0.3)
-                        .foregroundStyle(.white.opacity(0.62))
+                    HStack(alignment: .center, spacing: 2) {
+                        Text("GAME BOY")
+                            .font(.custom("HelveticaNeue-CondensedBlack", size: 13)).tracking(-0.5)
+                            .transformEffect(CGAffineTransform(a: 1, b: 0, c: -0.2, d: 1, tx: 2, ty: 0))
+                        AdvanceWordmark().stroke(style: StrokeStyle(lineWidth: 1.05, lineCap: .square, lineJoin: .miter))
+                            .frame(width: 64, height: 8).offset(y: 1)
+                    }
+                        .accessibilityElement(children: .ignore).accessibilityLabel("Game Boy Advance")
+                        .foregroundStyle(.white.opacity(0.68))
                         .frame(maxWidth: .infinity)
                         .padding(.top, 14).padding(.bottom, 22)
                 }
