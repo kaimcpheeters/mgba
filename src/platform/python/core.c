@@ -8,7 +8,7 @@
 #include <mgba/core/core.h>
 
 struct mCoreCallbacks* mCorePythonCallbackCreate(void* pyobj) {
-	struct mCoreCallbacks* callbacks = malloc(sizeof(*callbacks));
+	struct mCoreCallbacks* callbacks = calloc(1, sizeof(*callbacks));
 	callbacks->videoFrameStarted = _mCorePythonCallbacksVideoFrameStarted;
 	callbacks->videoFrameEnded = _mCorePythonCallbacksVideoFrameEnded;
 	callbacks->coreCrashed = _mCorePythonCallbacksCoreCrashed;

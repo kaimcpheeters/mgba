@@ -51,6 +51,10 @@ struct mCoreCallbacks {
 	void (*savedataUpdated)(void* context);
 	void (*alarm)(void* context);
 	void (*memoryBlocksChanged)(void* context);
+	/* Final active-high GBA KEYINPUT value, after input callbacks and SOCD filtering. */
+	void (*keysSampled)(void* context, uint16_t keys);
+	/* GBA reset or successful state load invalidates an active capture timeline. */
+	void (*captureDiscontinuity)(void* context);
 };
 
 DECLARE_VECTOR(mCoreCallbacksList, struct mCoreCallbacks);

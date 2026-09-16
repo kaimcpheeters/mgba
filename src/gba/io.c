@@ -815,6 +815,12 @@ uint16_t GBAIORead(struct GBA* gba, uint32_t address) {
 				}
 			}
 			gba->memory.io[address >> 1] = 0x3FF ^ input;
+			for (c = 0; c < mCoreCallbacksListSize(&gba->coreCallbacks); ++c) {
+				const struct mCoreCallbacks* callbacks = mCoreCallbacksListGetConstPointer(&gba->coreCallbacks, c);
+				if (callbacks->keysSampled) {
+					callbacks->keysSampled(callbacks->context, input & 0x3FF);
+				}
+			}
 		}
 		break;
 	case GBA_REG_SIOCNT:

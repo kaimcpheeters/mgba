@@ -1,3 +1,6 @@
+> **GameDex capture fork:** native GBA video, audio and sampled inputs with GameDex
+> JSON/media exports. [Build, record and validate](doc/gamedex/README.md).
+
 mGBA
 ====
 

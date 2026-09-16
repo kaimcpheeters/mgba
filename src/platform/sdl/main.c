@@ -26,6 +26,9 @@
 #include <mgba-util/vfs.h>
 
 #include <SDL.h>
+#ifdef BUILD_GAMEDEX
+#include "feature/gamedex/capture.h"
+#endif
 
 #include <errno.h>
 #include <signal.h>
@@ -43,6 +46,47 @@ static struct VFile* _state = NULL;
 static void _loadState(struct mCoreThread* thread) {
 	mCoreLoadStateNamed(thread->core, _state, SAVESTATE_RTC);
 }
+
+#ifdef BUILD_GAMEDEX
+struct GameDexContext {
+	struct mGameDexCapture* capture;
+	bool attempted;
+	bool failed;
+	unsigned limit;
+	struct mCoreCallbacks callbacks;
+	struct mCoreThread* thread;
+};
+
+static void _captureFrame(void* opaque) {
+	struct GameDexContext* capture = opaque;
+	if (!mGameDexHealthy(capture->capture)) {
+		capture->failed = true;
+		mCoreThreadEnd(capture->thread);
+	} else if (capture->limit && mGameDexFrames(capture->capture) >= capture->limit) {
+		mCoreThreadEnd(capture->thread);
+	}
+}
+
+static void _captureStart(struct mCoreThread* thread) {
+	struct GameDexContext* capture = thread->userData;
+	if (capture->attempted) {
+		capture->failed = true;
+		mCoreThreadEnd(thread);
+		return;
+	}
+	capture->attempted = true;
+	capture->capture = mGameDexStart(thread->core, mCoreConfigGetValue(&thread->core->config, "gamedexCapture"));
+	if (!capture->capture) {
+		capture->failed = true;
+		mCoreThreadEnd(thread);
+		return;
+	}
+	capture->callbacks.context = capture;
+	capture->callbacks.videoFrameEnded = _captureFrame;
+	thread->core->addCoreCallbacks(thread->core, &capture->callbacks);
+	fprintf(stderr, "GameDex capture active: %s\n", mCoreConfigGetValue(&thread->core->config, "gamedexCapture"));
+}
+#endif
 
 int main(int argc, char** argv) {
 #ifdef _WIN32
@@ -235,6 +279,32 @@ int mSDLRun(struct mSDLRenderer* renderer, struct mArguments* args) {
 	}
 #endif
 
+#ifdef BUILD_GAMEDEX
+	struct GameDexContext capture = {.thread = &thread};
+	const char* captureDirectory = mCoreConfigGetValue(&renderer->core->config, "gamedexCapture");
+	if (captureDirectory) {
+		if (args->savestate
+#ifdef ENABLE_DEBUGGERS
+		    || hasDebugger
+#endif
+		   ) {
+			fprintf(stderr, "GameDex capture starts from reset; savestate/debugger startup is unsupported.\n");
+			renderer->core->unloadROM(renderer->core);
+			return 1;
+		}
+		mCoreConfigGetUIntValue(&renderer->core->config, "gamedexFrames", &capture.limit);
+		renderer->core->opts.rewindEnable = false;
+		thread.resetCallback = _captureStart;
+		thread.userData = &capture;
+	}
+#else
+	if (mCoreConfigGetValue(&renderer->core->config, "gamedexCapture")) {
+		fprintf(stderr, "This build lacks BUILD_GAMEDEX.\n");
+		renderer->core->unloadROM(renderer->core);
+		return 1;
+	}
+#endif
+
 	renderer->audio.samples = renderer->core->opts.audioBuffers;
 	renderer->audio.sampleRate = 44100;
 	thread.logger.logger = &_logger.d;
@@ -273,6 +343,7 @@ int mSDLRun(struct mSDLRenderer* renderer, struct mArguments* args) {
 		} else {
 			didFail = true;
 			printf("Could not initialize audio.\n");
+			mCoreThreadEnd(&thread);
 		}
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 		mSDLResumeScreensaver(&renderer->events);
@@ -283,6 +354,14 @@ int mSDLRun(struct mSDLRenderer* renderer, struct mArguments* args) {
 	} else {
 		printf("Could not run game. Are you sure the file exists and is a compatible game?\n");
 	}
+#ifdef BUILD_GAMEDEX
+	if (capture.capture) {
+		renderer->core->removeCoreCallbacks(renderer->core, &capture.callbacks);
+		if (didFail || capture.failed) mGameDexAbort(capture.capture, "Emulation ended with an error");
+		if (!mGameDexStop(capture.capture)) capture.failed = true;
+	}
+	didFail = didFail || capture.failed;
+#endif
 	renderer->core->unloadROM(renderer->core);
 
 #ifdef ENABLE_SCRIPTING
@@ -302,11 +381,10 @@ int mSDLRun(struct mSDLRenderer* renderer, struct mArguments* args) {
 static void mSDLDeinit(struct mSDLRenderer* renderer) {
 	mSDLDeinitEvents(&renderer->events);
 	mSDLDeinitAudio(&renderer->audio);
+	renderer->deinit(renderer);
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 	SDL_DestroyWindow(renderer->window);
 #endif
-
-	renderer->deinit(renderer);
 
 	SDL_Quit();
 }

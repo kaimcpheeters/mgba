@@ -132,3 +132,8 @@ if(UNIX)
 endif()
 
 debug_strip(${BINARY_NAME}-sdl)
+
+if(BUILD_GAMEDEX)
+	target_compile_definitions(${BINARY_NAME}-sdl PRIVATE BUILD_GAMEDEX)
+	target_link_libraries(${BINARY_NAME}-sdl mgba-gamedex)
+endif()

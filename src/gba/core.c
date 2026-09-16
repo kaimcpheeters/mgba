@@ -734,6 +734,7 @@ static void _GBACoreChecksum(const struct mCore* core, void* data, enum mCoreChe
 }
 
 static void _GBACoreReset(struct mCore* core) {
+	mCALLBACKS_INVOKE(((struct GBA*) core->board), captureDiscontinuity);
 	struct GBACore* gbacore = (struct GBACore*) core;
 	struct GBA* gba = (struct GBA*) core->board;
 	bool value;
@@ -880,7 +881,9 @@ static size_t _GBACoreStateSize(struct mCore* core) {
 }
 
 static bool _GBACoreLoadState(struct mCore* core, const void* state) {
-	return GBADeserialize(core->board, state);
+	bool loaded = GBADeserialize(core->board, state);
+	if (loaded) mCALLBACKS_INVOKE(((struct GBA*) core->board), captureDiscontinuity);
+	return loaded;
 }
 
 static bool _GBACoreSaveState(struct mCore* core, void* state) {

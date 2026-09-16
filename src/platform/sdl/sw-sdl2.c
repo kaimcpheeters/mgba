@@ -30,6 +30,15 @@ bool mSDLSWInit(struct mSDLRenderer* renderer) {
 	renderer->window = SDL_CreateWindow(projectName, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, renderer->viewportWidth, renderer->viewportHeight, SDL_WINDOW_FULLSCREEN_DESKTOP * renderer->player.fullscreen);
 	renderer->sdlRenderer = SDL_CreateRenderer(renderer->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 #endif
+	if (!renderer->window) return false;
+	if (!renderer->sdlRenderer) {
+#if SDL_VERSION_ATLEAST(3, 0, 0)
+		renderer->sdlRenderer = SDL_CreateRenderer(renderer->window, "software");
+#else
+		renderer->sdlRenderer = SDL_CreateRenderer(renderer->window, -1, SDL_RENDERER_SOFTWARE);
+#endif
+	}
+	if (!renderer->sdlRenderer) return false;
 	SDL_GetWindowSize(renderer->window, &renderer->viewportWidth, &renderer->viewportHeight);
 	renderer->player.window = renderer->window;
 #ifdef COLOR_16_BIT
@@ -42,8 +51,9 @@ bool mSDLSWInit(struct mSDLRenderer* renderer) {
 	renderer->sdlTex = SDL_CreateTexture(renderer->sdlRenderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, width, height);
 #endif
 
+	if (!renderer->sdlTex) return false;
 	int stride;
-	SDL_LockTexture(renderer->sdlTex, 0, (void**) &renderer->outputBuffer, &stride);
+	if (!SDL_OK(SDL_LockTexture(renderer->sdlTex, 0, (void**) &renderer->outputBuffer, &stride))) return false;
 	renderer->core->setVideoBuffer(renderer->core, renderer->outputBuffer, stride / BYTES_PER_PIXEL);
 
 	return true;
@@ -71,7 +81,9 @@ void mSDLSWRunloop(struct mSDLRenderer* renderer, void* user) {
 }
 
 void mSDLSWDeinit(struct mSDLRenderer* renderer) {
-	if (renderer->ratio > 1) {
-		free(renderer->outputBuffer);
-	}
+	/* outputBuffer belongs to the locked SDL texture, at every scale. */
+	SDL_UnlockTexture(renderer->sdlTex);
+	SDL_DestroyTexture(renderer->sdlTex);
+	SDL_DestroyRenderer(renderer->sdlRenderer);
+	renderer->outputBuffer = NULL;
 }
